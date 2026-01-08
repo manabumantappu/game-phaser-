@@ -14,6 +14,8 @@ export default class GameScene extends Phaser.Scene {
     this.score = data.score ?? 0;
     this.powerMode = false;
     this.levelCleared = false;
+    this.currentDir = { x: 0, y: 0 };
+    this.nextDir = { x: 0, y: 0 };
     
     // 🔊 AUDIO STATE
   this.isMuted = data.muted ?? false;
@@ -200,6 +202,47 @@ export default class GameScene extends Phaser.Scene {
           score: this.score
         });
       }
+      setDirection(dir) {
+  this.currentDir = dir;
+  const speed = 140;
+  this.player.setVelocity(
+    dir.x * speed,
+    dir.y * speed
+  );
+}
+
+      // 👇👇👇 TEMPEL JUGA
+      isNearCenter(sprite) {
+  const tx = Math.round((sprite.x) / TILE) * TILE;
+  const ty = Math.round((sprite.y - HUD_HEIGHT) / TILE) * TILE + HUD_HEIGHT;
+
+  return (
+    Math.abs(sprite.x - tx) < 4 &&
+    Math.abs(sprite.y - ty) < 4
+  );
+}
+// 👇👇👇 TEMPEL JUGA
+  canMove(dir) {
+    const testX = this.player.x + dir.x * TILE;
+    const testY = this.player.y + dir.y * TILE;
+
+    for (let w of this.walls.getChildren()) {
+      if (
+        Phaser.Geom.Intersects.RectangleToRectangle(
+          new Phaser.Geom.Rectangle(
+            testX - 14,
+            testY - 14,
+            28,
+            28
+          ),
+          w.getBounds()
+        )
+      ) {
+        return false;
+      }
+    }
+    return true;
+  }
     });
   }
 
@@ -282,35 +325,64 @@ export default class GameScene extends Phaser.Scene {
   /* =====================
      UPDATE
   ===================== */
-  update() {
-    if (this.levelCleared) return;
+ update() {
+  if (this.levelCleared) return;
 
-    let vx = 0, vy = 0;
-    const speed = 140;
+  const speed = 140;
 
-    // Keyboard
-    if (this.cursors.left.isDown) vx = -speed;
-    else if (this.cursors.right.isDown) vx = speed;
-    if (this.cursors.up.isDown) vy = -speed;
-    else if (this.cursors.down.isDown) vy = speed;
+  /* =====================
+     INPUT → NEXT DIR
+  ===================== */
+  if (this.cursors.left.isDown) this.nextDir = { x: -1, y: 0 };
+  else if (this.cursors.right.isDown) this.nextDir = { x: 1, y: 0 };
+  else if (this.cursors.up.isDown) this.nextDir = { x: 0, y: -1 };
+  else if (this.cursors.down.isDown) this.nextDir = { x: 0, y: 1 };
 
-    // Mobile joystick
-    if (this.joystick.forceX || this.joystick.forceY) {
-      vx = this.joystick.forceX * speed;
-      vy = this.joystick.forceY * speed;
+  if (this.joystick.forceX || this.joystick.forceY) {
+    if (Math.abs(this.joystick.forceX) > Math.abs(this.joystick.forceY)) {
+      this.nextDir = {
+        x: this.joystick.forceX > 0 ? 1 : -1,
+        y: 0
+      };
+    } else {
+      this.nextDir = {
+        x: 0,
+        y: this.joystick.forceY > 0 ? 1 : -1
+      };
     }
-
-    this.player.setVelocity(vx, vy);
-
-    // Rotate Pac-Man
-    if (vx < 0) this.player.setAngle(180);
-    else if (vx > 0) this.player.setAngle(0);
-    else if (vy < 0) this.player.setAngle(270);
-    else if (vy > 0) this.player.setAngle(90);
-
-    // Ghost chase AI
-    this.ghosts.children.iterate(g => {
-      this.physics.moveToObject(g, this.player, g.speed);
-    });
   }
+
+  /* =====================
+     TURN LOGIC
+  ===================== */
+  if (this.isNearCenter(this.player)) {
+    // coba belok
+    if (this.canMove(this.nextDir)) {
+      this.setDirection(this.nextDir);
+    }
+  }
+
+  /* =====================
+     APPLY CURRENT DIR
+  ===================== */
+  this.player.setVelocity(
+    this.currentDir.x * speed,
+    this.currentDir.y * speed
+  );
+
+  /* =====================
+     ROTASI PACMAN
+  ===================== */
+  if (this.currentDir.x < 0) this.player.setAngle(180);
+  else if (this.currentDir.x > 0) this.player.setAngle(0);
+  else if (this.currentDir.y < 0) this.player.setAngle(270);
+  else if (this.currentDir.y > 0) this.player.setAngle(90);
+
+  /* =====================
+     GHOST AI
+  ===================== */
+  this.ghosts.children.iterate(g => {
+    this.physics.moveToObject(g, this.player, g.speed);
+  });
 }
+
