@@ -17,15 +17,14 @@ export default class GameScene extends Phaser.Scene {
     this.rows = Math.min(9 + this.level * 2, 21);
 
     /* ======================
-       AUDIO (BGM)
+       AUDIO STATE (SAFE)
     ====================== */
-    if (!this.sound.get("bgm")) {
-      this.bgm = this.sound.add("bgm", {
-        loop: true,
-        volume: 0.4
-      });
-      this.bgm.play();
-    }
+    this.bgmStarted = false;
+
+    // 🔓 Unlock & play audio AFTER first user tap
+    this.input.once("pointerdown", () => {
+      this.startBGM();
+    });
 
     /* ======================
        MAZE
@@ -35,6 +34,25 @@ export default class GameScene extends Phaser.Scene {
     this.createControls();
     this.createTimer();
     this.createJoystick();
+  }
+
+  /* ======================
+     SAFE BGM START
+  ====================== */
+  startBGM() {
+    if (this.bgmStarted) return;
+    if (!this.sound || !this.sound.get("bgm")) return;
+
+    this.bgm = this.sound.get("bgm") || this.sound.add("bgm", {
+      loop: true,
+      volume: 0.4
+    });
+
+    if (!this.bgm.isPlaying) {
+      this.sound.unlock();
+      this.bgm.play();
+      this.bgmStarted = true;
+    }
   }
 
   /* ======================
@@ -102,7 +120,7 @@ export default class GameScene extends Phaser.Scene {
     this.physics.add.existing(this.player);
     this.player.body.setCollideWorldBounds(true);
 
-    /* TARGETS */
+    /* TARGETS (AUTO SCALING) */
     this.targetsLeft = Math.min(2 + Math.floor(this.level * 1.5), 10);
     for (let i = 0; i < this.targetsLeft; i++) {
       this.spawnTarget();
@@ -183,9 +201,12 @@ export default class GameScene extends Phaser.Scene {
     this.targetsLeft--;
     this.score += 10;
 
-    this.sound.play("collect", { volume: 0.7 });
-    navigator.vibrate?.(30);
+    // 🔊 SAFE SFX
+    if (this.sound.get("collect")) {
+      this.sound.play("collect", { volume: 0.7 });
+    }
 
+    navigator.vibrate?.(30);
     this.updateUI();
 
     if (this.targetsLeft <= 0) {
