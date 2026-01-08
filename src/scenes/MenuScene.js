@@ -50,7 +50,8 @@ export default class MenuScene extends Phaser.Scene {
       height * 0.55,
       "START",
       () => {
-        this.sound.play("click", { volume: 0.6 });
+        this.unlockAudio();
+        this.safePlayClick();
         this.scene.start("GameScene", {
           level: 1,
           score: 0
@@ -63,7 +64,8 @@ export default class MenuScene extends Phaser.Scene {
       height * 0.65,
       "LEVEL SELECT",
       () => {
-        this.sound.play("click", { volume: 0.6 });
+        this.unlockAudio();
+        this.safePlayClick();
         this.scene.start("LevelSelectScene");
       }
     );
@@ -74,12 +76,27 @@ export default class MenuScene extends Phaser.Scene {
     this.add.text(
       width / 2,
       height - 30,
-      "Tap buttons to play",
+      "Tap button to play",
       {
         fontSize: "12px",
         color: "#777777"
       }
     ).setOrigin(0.5);
+  }
+
+  /* ======================
+     AUDIO SAFE FUNCTIONS
+  ====================== */
+  unlockAudio() {
+    if (this.sound && this.sound.context && this.sound.context.state === "suspended") {
+      this.sound.unlock();
+    }
+  }
+
+  safePlayClick() {
+    if (this.sound && this.sound.get("click")) {
+      this.sound.play("click", { volume: 0.6 });
+    }
   }
 
   /* ======================
@@ -108,10 +125,9 @@ export default class MenuScene extends Phaser.Scene {
       }
     ).setOrigin(0.5);
 
-    // Visual feedback
     button.on("pointerdown", () => {
       button.setScale(0.95);
-      if (navigator.vibrate) navigator.vibrate(20);
+      navigator.vibrate?.(20);
     });
 
     button.on("pointerup", () => {
