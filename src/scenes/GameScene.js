@@ -1,6 +1,8 @@
 import { LEVELS } from "../data/levels.js";
 import VirtualJoystick from "../ui/VirtualJoystick.js";
 
+const TILE = 32;
+
 export default class GameScene extends Phaser.Scene {
   constructor() {
     super({ key: "GameScene" });
@@ -8,117 +10,124 @@ export default class GameScene extends Phaser.Scene {
 
   init(data) {
     this.levelIndex = data.level ?? 0;
+    this.powerMode = false;
   }
 
   create() {
-    this.levelData = LEVELS[this.levelIndex];
+    this.level = LEVELS[this.levelIndex];
     this.cursors = this.input.keyboard.createCursorKeys();
+    this.joystick = new VirtualJoystick(this);
 
-    /* ======================
-       AUDIO (FIXED)
-    ====================== */
+    // AUDIO
     this.sfxCollect = this.sound.add("collect", { volume: 0.8 });
     this.sfxClick = this.sound.add("click", { volume: 0.6 });
 
-    // BGM — hanya dibuat 1x
     if (!this.sound.get("bgm")) {
-      this.bgm = this.sound.add("bgm", {
-        loop: true,
-        volume: 0.4
-      });
+      this.bgm = this.sound.add("bgm", { loop: true, volume: 0.4 });
       this.bgm.play();
-    } else {
-      this.bgm = this.sound.get("bgm");
     }
 
-    this.createWorld();
+    // ANIM
+    this.anims.create({
+      key: "chomp",
+      frames: this.anims.generateFrameNumbers("pacman", { start: 0, end: 2 }),
+      frameRate: 10,
+      repeat: -1
+    });
+
+    this.buildMap();
     this.createPlayer();
-    this.createJoystick();
+    this.createGhosts();
   }
 
-  createWorld() {
+  buildMap() {
     this.walls = this.physics.add.staticGroup();
     this.pellets = this.physics.add.group();
+    this.powerPellets = this.physics.add.group();
 
-    // WALLS
-    this.levelData.walls.forEach(w => {
-      const wall = this.walls.create(w.x, w.y, "wall");
-      wall.setDisplaySize(w.w, w.h);
-      wall.refreshBody();
+    this.level.map.forEach((row, y) => {
+      [...row].forEach((cell, x) => {
+        const px = x * TILE + TILE / 2;
+        const py = y * TILE + TILE / 2;
+
+        if (cell === "1") this.walls.create(px, py, "wall").refreshBody();
+        if (cell === "0") this.pellets.create(px, py, "pellet");
+        if (cell === "2") this.powerPellets.create(px, py, "power");
+      });
     });
-
-    // PELLETS
-    this.levelData.pellets.forEach(p => {
-      this.pellets.create(p.x, p.y, "pellet");
-    });
-
-    // GOAL (muncul setelah pellet habis)
-    this.goal = this.physics.add.staticImage(
-      this.levelData.goal.x,
-      this.levelData.goal.y,
-      "goal"
-    );
-    this.goal.setVisible(false);
   }
 
   createPlayer() {
     this.player = this.physics.add.sprite(
-      this.levelData.player.x,
-      this.levelData.player.y,
-      "player"
+      this.level.player.x * TILE + 16,
+      this.level.player.y * TILE + 16,
+      "pacman"
     );
 
+    this.player.play("chomp");
     this.player.setCollideWorldBounds(true);
-
     this.physics.add.collider(this.player, this.walls);
 
-    this.physics.add.overlap(this.player, this.pellets, (_, pellet) => {
-      pellet.destroy();
+    this.physics.add.overlap(this.player, this.pellets, (_, p) => {
+      p.destroy();
       this.sfxCollect.play();
+    });
 
-      if (this.pellets.countActive(true) === 0) {
-        this.goal.setVisible(true);
+    this.physics.add.overlap(this.player, this.powerPellets, (_, p) => {
+      p.destroy();
+      this.powerMode = true;
+      this.time.delayedCall(6000, () => (this.powerMode = false));
+    });
+  }
+
+  createGhosts() {
+    this.ghosts = this.physics.add.group();
+
+    this.level.ghosts.forEach(g => {
+      const ghost = this.ghosts.create(
+        g.x * TILE + 16,
+        g.y * TILE + 16,
+        "ghost"
+      );
+      ghost.speed = 70;
+    });
+
+    this.physics.add.collider(this.ghosts, this.walls);
+
+    this.physics.add.overlap(this.player, this.ghosts, (_, ghost) => {
+      if (this.powerMode) {
+        ghost.destroy();
+        this.sfxCollect.play();
+      } else {
+        this.scene.restart({ level: this.levelIndex });
       }
     });
-
-    this.physics.add.overlap(this.player, this.goal, () => {
-      this.sfxClick.play();
-      this.nextLevel();
-    });
-  }
-
-  createJoystick() {
-    this.joystick = new VirtualJoystick(this);
-  }
-
-  nextLevel() {
-    if (this.levelIndex + 1 >= LEVELS.length) {
-      this.scene.start("GameOverScene");
-    } else {
-      this.scene.start("GameScene", {
-        level: this.levelIndex + 1
-      });
-    }
   }
 
   update() {
-    const speed = 160;
-    let vx = 0;
-    let vy = 0;
+    let vx = 0, vy = 0, speed = 140;
 
-    // KEYBOARD
     if (this.cursors.left.isDown) vx = -speed;
     else if (this.cursors.right.isDown) vx = speed;
-
     if (this.cursors.up.isDown) vy = -speed;
     else if (this.cursors.down.isDown) vy = speed;
 
-    // MOBILE JOYSTICK
-    if (this.joystick) {
+    if (this.joystick.forceX || this.joystick.forceY) {
       vx = this.joystick.forceX * speed;
       vy = this.joystick.forceY * speed;
     }
 
     this.player.setVelocity(vx, vy);
+
+    // arah mulut
+    if (vx < 0) this.player.setAngle(180);
+    else if (vx > 0) this.player.setAngle(0);
+    else if (vy < 0) this.player.setAngle(270);
+    else if (vy > 0) this.player.setAngle(90);
+
+    // GHOST CHASE AI
+    this.ghosts.children.iterate(g => {
+      this.physics.moveToObject(g, this.player, g.speed);
+    });
   }
 }
