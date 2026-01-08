@@ -3,6 +3,7 @@ import VirtualJoystick from "../ui/VirtualJoystick.js";
 
 const TILE = 32;
 const HUD_HEIGHT = 56;
+const MOVE_DURATION = 220; // kecepatan pacman
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -14,6 +15,7 @@ export default class GameScene extends Phaser.Scene {
   ===================== */
   init(data) {
     this.levelIndex = data.level ?? 0;
+    this.score = data.score ?? 0;
 
     this.currentDir = { x: 0, y: 0 };
     this.nextDir = { x: 0, y: 0 };
@@ -32,24 +34,78 @@ export default class GameScene extends Phaser.Scene {
     this.cursors = this.input.keyboard.createCursorKeys();
     this.joystick = new VirtualJoystick(this);
 
+    // unlock audio (mobile)
+    this.input.once("pointerdown", () => {
+      if (this.sound.context.state === "suspended") {
+        this.sound.context.resume();
+      }
+    });
+
+    // sound
+    this.sfxCollect = this.sound.add("collect", { volume: 0.8 });
+    this.sfxLevelClear = this.sound.add("levelclear", { volume: 0.9 });
+
     this.buildMap();
     this.createPlayer();
+    this.createHUD();
   }
 
   /* =====================
-     MAP
+     HUD
+  ===================== */
+  createHUD() {
+    this.add.rectangle(
+      this.scale.width / 2,
+      HUD_HEIGHT / 2,
+      this.scale.width,
+      HUD_HEIGHT,
+      0x000000,
+      0.6
+    );
+
+    this.hudScore = this.add.text(
+      10,
+      16,
+      `SCORE: ${this.score}`,
+      { fontSize: "18px", color: "#ffff00", fontStyle: "bold" }
+    );
+
+    this.hudLevel = this.add.text(
+      this.scale.width - 10,
+      16,
+      `LEVEL: ${this.levelIndex + 1}`,
+      { fontSize: "18px", color: "#ffffff", fontStyle: "bold" }
+    ).setOrigin(1, 0);
+  }
+
+  updateHUD() {
+    this.hudScore.setText(`SCORE: ${this.score}`);
+  }
+
+  /* =====================
+     MAP & PELLET
   ===================== */
   buildMap() {
-    this.walls = this.add.group();
+    this.pellets = [];
+    this.totalPellets = 0;
 
     this.level.map.forEach((row, y) => {
+      this.pellets[y] = [];
+
       [...row].forEach((cell, x) => {
+        const px = x * TILE + TILE / 2;
+        const py = HUD_HEIGHT + y * TILE + TILE / 2;
+
         if (cell === "1") {
-          this.add.image(
-            x * TILE + TILE / 2,
-            HUD_HEIGHT + y * TILE + TILE / 2,
-            "wall"
-          ).setDisplaySize(TILE, TILE);
+          this.add.image(px, py, "wall").setDisplaySize(TILE, TILE);
+          this.pellets[y][x] = null;
+        }
+
+        if (cell === "0") {
+          const pellet = this.add.image(px, py, "pellet");
+          pellet.setDisplaySize(8, 8);
+          this.pellets[y][x] = pellet;
+          this.totalPellets++;
         }
       });
     });
@@ -66,13 +122,11 @@ export default class GameScene extends Phaser.Scene {
       this.tileX * TILE + TILE / 2,
       HUD_HEIGHT + this.tileY * TILE + TILE / 2,
       "pacman"
-    );
-
-    this.player.setDisplaySize(28, 28);
+    ).setDisplaySize(28, 28);
   }
 
   /* =====================
-     INPUT BUFFER
+     INPUT
   ===================== */
   readInput() {
     if (this.cursors.left.isDown) this.nextDir = { x: -1, y: 0 };
@@ -115,23 +169,39 @@ export default class GameScene extends Phaser.Scene {
     this.currentDir = dir;
     this.moving = true;
 
-    const targetX = this.tileX + dir.x;
-    const targetY = this.tileY + dir.y;
+    const tx = this.tileX + dir.x;
+    const ty = this.tileY + dir.y;
 
     this.tweens.add({
       targets: this.player,
-      x: targetX * TILE + TILE / 2,
-      y: HUD_HEIGHT + targetY * TILE + TILE / 2,
-      duration: 140,
+      x: tx * TILE + TILE / 2,
+      y: HUD_HEIGHT + ty * TILE + TILE / 2,
+      duration: MOVE_DURATION,
       ease: "Linear",
       onComplete: () => {
-        this.tileX = targetX;
-        this.tileY = targetY;
+        this.tileX = tx;
+        this.tileY = ty;
         this.moving = false;
+
+        // makan pellet
+        const pellet = this.pellets[ty]?.[tx];
+        if (pellet) {
+          pellet.destroy();
+          this.pellets[ty][tx] = null;
+          this.totalPellets--;
+          this.score += 10;
+          this.updateHUD();
+          this.sfxCollect.play();
+        }
+
+        // win
+        if (this.totalPellets === 0) {
+          this.levelClear();
+        }
       }
     });
 
-    // ROTASI
+    // rotasi
     if (dir.x < 0) this.player.setAngle(180);
     else if (dir.x > 0) this.player.setAngle(0);
     else if (dir.y < 0) this.player.setAngle(270);
@@ -139,19 +209,40 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /* =====================
+     LEVEL CLEAR
+  ===================== */
+  levelClear() {
+    this.sfxLevelClear.play();
+
+    const text = this.add.text(
+      this.scale.width / 2,
+      this.scale.height / 2,
+      "LEVEL CLEAR",
+      {
+        fontSize: "36px",
+        color: "#ffff00",
+        fontStyle: "bold"
+      }
+    ).setOrigin(0.5);
+
+    this.time.delayedCall(1200, () => {
+      this.scene.start("GameScene", {
+        level: this.levelIndex + 1,
+        score: this.score
+      });
+    });
+  }
+
+  /* =====================
      UPDATE
   ===================== */
   update() {
     this.readInput();
-
     if (this.moving) return;
 
-    // PRIORITAS BEL0K
     if (this.canMove(this.nextDir)) {
       this.startMove(this.nextDir);
-    }
-    // LANJUTKAN ARAH LAMA
-    else if (this.canMove(this.currentDir)) {
+    } else if (this.canMove(this.currentDir)) {
       this.startMove(this.currentDir);
     }
   }
