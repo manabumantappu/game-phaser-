@@ -4,7 +4,7 @@ export default class LevelSelectScene extends Phaser.Scene {
   }
 
   create() {
-    this.add.text(100, 100, "LEVEL SELECT", {
+    this.add.text(80, 120, "LEVEL SELECT OK", {
       fontSize: "24px",
       color: "#ffffff"
     });
