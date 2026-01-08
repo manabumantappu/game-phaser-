@@ -3,7 +3,8 @@ import VirtualJoystick from "../ui/VirtualJoystick.js";
 
 const TILE = 32;
 const HUD_HEIGHT = 80;
-const MOVE_DURATION = 260; <====  speed pacman =====!
+const MOVE_DURATION = 220;
+const POWER_TIME = 6000;
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -16,7 +17,7 @@ export default class GameScene extends Phaser.Scene {
   init(data) {
     this.levelIndex = data.level ?? 0;
     this.score = data.score ?? 0;
-    this.ghosts = [];
+    this.lives = data.lives ?? 3;
 
     this.currentDir = { x: 0, y: 0 };
     this.nextDir = { x: 0, y: 0 };
@@ -24,33 +25,40 @@ export default class GameScene extends Phaser.Scene {
     this.tileX = 0;
     this.tileY = 0;
     this.moving = false;
+
+    this.powerMode = false;
+    this.ghosts = [];
   }
 
   /* =====================
      CREATE
   ===================== */
   create() {
-    console.log("GameScene start");
-
     this.level = LEVELS[this.levelIndex];
-    if (!this.level) {
-      console.error("LEVEL NOT FOUND", this.levelIndex);
-      return;
-    }
+    if (!this.level) return;
 
     this.cursors = this.input.keyboard.createCursorKeys();
     this.joystick = new VirtualJoystick(this);
 
-    // unlock audio (mobile safe)
+    // 🔊 unlock audio (mobile)
     this.input.once("pointerdown", () => {
       if (this.sound.context.state === "suspended") {
         this.sound.context.resume();
       }
     });
 
+    // 🔊 sounds
+    this.sfxCollect = this.sound.add("collect", { volume: 0.8 });
+    this.sfxPower = this.sound.add("click", { volume: 0.8 });
+
+    if (!this.sound.get("bgm")) {
+      this.bgm = this.sound.add("bgm", { loop: true, volume: 0.4 });
+      this.bgm.play();
+    }
+
     this.buildMap();
     this.createPlayer();
-    this.createGhosts(); // 👻 TAMBAHKAN
+    this.createGhosts();
     this.createHUD();
   }
 
@@ -67,27 +75,34 @@ export default class GameScene extends Phaser.Scene {
       0.6
     );
 
-    this.hudScore = this.add.text(
-      12,
-      24,
-      `SCORE ${this.score}`,
-      { fontSize: "18px", color: "#ffff00", fontStyle: "bold" }
-    );
+    this.hudScore = this.add.text(12, 22, `SCORE ${this.score}`, {
+      fontSize: "18px",
+      color: "#ffff00",
+      fontStyle: "bold"
+    });
+
+    this.hudLives = this.add.text(
+      this.scale.width / 2,
+      22,
+      `❤️ ${this.lives}`,
+      { fontSize: "18px", color: "#ff4444" }
+    ).setOrigin(0.5, 0);
 
     this.hudLevel = this.add.text(
       this.scale.width - 12,
-      24,
+      22,
       `L${this.levelIndex + 1}`,
-      { fontSize: "18px", color: "#ffffff", fontStyle: "bold" }
+      { fontSize: "18px", color: "#ffffff" }
     ).setOrigin(1, 0);
   }
 
   updateHUD() {
     this.hudScore.setText(`SCORE ${this.score}`);
+    this.hudLives.setText(`❤️ ${this.lives}`);
   }
 
   /* =====================
-     MAP + PELLET
+     MAP
   ===================== */
   buildMap() {
     this.pellets = [];
@@ -106,14 +121,20 @@ export default class GameScene extends Phaser.Scene {
         if (cell === "1") {
           this.add.image(px, py, "wall").setDisplaySize(TILE, TILE);
           this.pellets[y][x] = null;
-        } 
+        }
         else if (cell === "0") {
           const p = this.add.image(px, py, "pellet");
-          p.setDisplaySize(12, 12);
-          p.setTint(0xffff00);
+          p.setDisplaySize(12, 12).setTint(0xffff00);
           this.pellets[y][x] = p;
           this.totalPellets++;
-        } 
+        }
+        else if (cell === "2") {
+          const p = this.add.image(px, py, "pellet");
+          p.setDisplaySize(18, 18).setTint(0x00ffff);
+          this.pellets[y][x] = p;
+          p.isPower = true;
+          this.totalPellets++;
+        }
         else {
           this.pellets[y][x] = null;
         }
@@ -134,99 +155,25 @@ export default class GameScene extends Phaser.Scene {
       "pacman"
     ).setDisplaySize(28, 28);
   }
-   /* =====================
+
+  /* =====================
      GHOST
   ===================== */
-createGhosts() {
-  this.ghosts = [];
-
-  this.level.ghosts.forEach(g => {
-    const ghost = {
-      tileX: g.x,
-      tileY: g.y,
-      dir: { x: 0, y: 0 },
-      moving: false,
-      sprite: this.add.sprite(
-        g.x * TILE + TILE / 2,
-        HUD_HEIGHT + g.y * TILE + TILE / 2,
-        "ghost"
-      ).setDisplaySize(28, 28)
-    };
-
-    this.ghosts.push(ghost);
-  });
-}
-moveGhosts() {
-  this.ghosts.forEach(ghost => {
-    if (ghost.moving) return;
-
-    // arah menuju pacman
-    const dx = this.tileX - ghost.tileX;
-    const dy = this.tileY - ghost.tileY;
-
-    let dir;
-    if (Math.abs(dx) > Math.abs(dy)) {
-      dir = { x: Math.sign(dx), y: 0 };
-    } else {
-      dir = { x: 0, y: Math.sign(dy) };
-    }
-
-    // fallback random kalau buntu
-    if (!this.canMoveGhost(ghost, dir)) {
-      const dirs = [
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-        { x: 0, y: 1 },
-        { x: 0, y: -1 }
-      ];
-      Phaser.Utils.Array.Shuffle(dirs);
-      dir = dirs.find(d => this.canMoveGhost(ghost, d));
-    }
-
-    if (dir) this.startGhostMove(ghost, dir);
-  });
-}
-canMoveGhost(ghost, dir) {
-  const nx = ghost.tileX + dir.x;
-  const ny = ghost.tileY + dir.y;
-
-  if (
-    ny < 0 ||
-    ny >= this.mapHeight ||
-    nx < 0 ||
-    nx >= this.mapWidth
-  ) return false;
-
-  return this.level.map[ny][nx] !== "1";
-}
-
-startGhostMove(ghost, dir) {
-  ghost.moving = true;
-
-  const tx = ghost.tileX + dir.x;
-  const ty = ghost.tileY + dir.y;
-
-  this.tweens.add({
-    targets: ghost.sprite,
-    x: tx * TILE + TILE / 2,
-    y: HUD_HEIGHT + ty * TILE + TILE / 2,
-    duration: MOVE_DURATION + 40,
-    ease: "Linear",
-    onComplete: () => {
-      ghost.tileX = tx;
-      ghost.tileY = ty;
-      ghost.moving = false;
-
-      // cek tabrakan pacman
-      if (ghost.tileX === this.tileX && ghost.tileY === this.tileY) {
-        this.scene.restart({
-          level: this.levelIndex,
-          score: this.score
-        });
-      }
-    }
-  });
-}
+  createGhosts() {
+    this.level.ghosts.forEach(g => {
+      const ghost = {
+        tileX: g.x,
+        tileY: g.y,
+        moving: false,
+        sprite: this.add.sprite(
+          g.x * TILE + TILE / 2,
+          HUD_HEIGHT + g.y * TILE + TILE / 2,
+          "ghost"
+        ).setDisplaySize(28, 28)
+      };
+      this.ghosts.push(ghost);
+    });
+  }
 
   /* =====================
      INPUT
@@ -249,32 +196,23 @@ startGhostMove(ghost, dir) {
   /* =====================
      GRID CHECK + PORTAL
   ===================== */
-  canMove(dir) {
-    if (!dir || (dir.x === 0 && dir.y === 0)) return false;
-
-    let nx = this.tileX + dir.x;
-    let ny = this.tileY + dir.y;
-
-    // PORTAL kiri–kanan
-    if (nx < 0) nx = this.mapWidth - 1;
-    if (nx >= this.mapWidth) nx = 0;
-
-    if (ny < 0 || ny >= this.mapHeight) return false;
-
-    return this.level.map[ny][nx] !== "1";
+  canMove(x, y) {
+    if (x < 0) x = this.mapWidth - 1;
+    if (x >= this.mapWidth) x = 0;
+    if (y < 0 || y >= this.mapHeight) return false;
+    return this.level.map[y][x] !== "1";
   }
 
   /* =====================
-     MOVE 1 TILE
+     MOVE PLAYER
   ===================== */
   startMove(dir) {
-    this.currentDir = dir;
     this.moving = true;
+    this.currentDir = dir;
 
     let tx = this.tileX + dir.x;
     let ty = this.tileY + dir.y;
 
-    // PORTAL kiri–kanan
     if (tx < 0) tx = this.mapWidth - 1;
     if (tx >= this.mapWidth) tx = 0;
 
@@ -289,46 +227,130 @@ startGhostMove(ghost, dir) {
         this.tileY = ty;
         this.moving = false;
 
-        // makan pellet
+        // eat pellet
         const pellet = this.pellets[ty]?.[tx];
         if (pellet) {
           pellet.destroy();
           this.pellets[ty][tx] = null;
           this.totalPellets--;
-          this.score += 10;
+          this.score += pellet.isPower ? 50 : 10;
+          this.sfxCollect.play();
+
+          if (pellet.isPower) {
+            this.activatePowerMode();
+          }
+
           this.updateHUD();
         }
 
-        // win
         if (this.totalPellets === 0) {
-          this.levelClear();
+          this.nextLevel();
         }
       }
     });
-
-    // rotasi
-    if (dir.x < 0) this.player.setAngle(180);
-    else if (dir.x > 0) this.player.setAngle(0);
-    else if (dir.y < 0) this.player.setAngle(270);
-    else if (dir.y > 0) this.player.setAngle(90);
   }
 
   /* =====================
-     LEVEL CLEAR
+     POWER MODE
   ===================== */
-  levelClear() {
-    const text = this.add.text(
-      this.scale.width / 2,
-      this.scale.height / 2,
-      "LEVEL CLEAR",
-      { fontSize: "36px", color: "#ffff00", fontStyle: "bold" }
-    ).setOrigin(0.5);
+  activatePowerMode() {
+    this.powerMode = true;
+    this.sfxPower.play();
 
-    this.time.delayedCall(1200, () => {
-      this.scene.start("GameScene", {
-        level: this.levelIndex + 1,
-        score: this.score
+    this.ghosts.forEach(g => {
+      g.sprite.setTint(0x00ffff);
+    });
+
+    this.time.delayedCall(POWER_TIME, () => {
+      this.powerMode = false;
+      this.ghosts.forEach(g => g.sprite.clearTint());
+    });
+  }
+
+  /* =====================
+     MOVE GHOSTS
+  ===================== */
+  moveGhosts() {
+    this.ghosts.forEach(g => {
+      if (g.moving) return;
+
+      const dx = this.tileX - g.tileX;
+      const dy = this.tileY - g.tileY;
+
+      let dir =
+        Math.abs(dx) > Math.abs(dy)
+          ? { x: Math.sign(dx), y: 0 }
+          : { x: 0, y: Math.sign(dy) };
+
+      let nx = g.tileX + dir.x;
+      let ny = g.tileY + dir.y;
+
+      if (!this.canMove(nx, ny)) {
+        const dirs = [
+          { x: 1, y: 0 }, { x: -1, y: 0 },
+          { x: 0, y: 1 }, { x: 0, y: -1 }
+        ];
+        Phaser.Utils.Array.Shuffle(dirs);
+        dir = dirs.find(d => this.canMove(g.tileX + d.x, g.tileY + d.y));
+        if (!dir) return;
+        nx = g.tileX + dir.x;
+        ny = g.tileY + dir.y;
+      }
+
+      g.moving = true;
+      this.tweens.add({
+        targets: g.sprite,
+        x: nx * TILE + TILE / 2,
+        y: HUD_HEIGHT + ny * TILE + TILE / 2,
+        duration: MOVE_DURATION + 40,
+        onComplete: () => {
+          g.tileX = nx;
+          g.tileY = ny;
+          g.moving = false;
+
+          if (g.tileX === this.tileX && g.tileY === this.tileY) {
+            this.onHitGhost(g);
+          }
+        }
       });
+    });
+  }
+
+  /* =====================
+     HIT GHOST
+  ===================== */
+  onHitGhost(ghost) {
+    if (this.powerMode) {
+      ghost.sprite.setPosition(
+        ghost.tileX * TILE + TILE / 2,
+        HUD_HEIGHT + ghost.tileY * TILE + TILE / 2
+      );
+      this.score += 200;
+      this.updateHUD();
+    } else {
+      this.lives--;
+      this.updateHUD();
+
+      if (this.lives <= 0) {
+        this.scene.start("MenuScene");
+      } else {
+        this.scene.restart({
+          level: this.levelIndex,
+          score: this.score,
+          lives: this.lives
+        });
+      }
+    }
+  }
+
+  /* =====================
+     NEXT LEVEL
+  ===================== */
+  nextLevel() {
+    this.scene.start("GameScene", {
+      level: this.levelIndex + 1,
+      score: this.score,
+      lives: this.lives
     });
   }
 
@@ -337,13 +359,13 @@ startGhostMove(ghost, dir) {
   ===================== */
   update() {
     this.readInput();
-    if (this.moving) return;
-
-    if (this.canMove(this.nextDir)) {
-      this.moveGhosts();
-      this.startMove(this.nextDir);
-    } else if (this.canMove(this.currentDir)) {
-      this.startMove(this.currentDir);
+    if (!this.moving) {
+      if (this.canMove(this.tileX + this.nextDir.x, this.tileY + this.nextDir.y)) {
+        this.startMove(this.nextDir);
+      } else if (this.canMove(this.tileX + this.currentDir.x, this.tileY + this.currentDir.y)) {
+        this.startMove(this.currentDir);
+      }
     }
+    this.moveGhosts();
   }
 }
