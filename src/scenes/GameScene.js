@@ -340,6 +340,7 @@ if (
   this.setDirection(this.nextDir);
 }
 else if (this.isNearCenter(this.player)) {
+  this.snapToCenter(this.player);
   if (this.canMove(this.nextDir)) {
     this.setDirection(this.nextDir);
   }
