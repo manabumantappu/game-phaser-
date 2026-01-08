@@ -1,19 +1,26 @@
 export default class BootScene extends Phaser.Scene {
   constructor() {
-    super("BootScene");
+    super({ key: "BootScene" });
   }
 
   preload() {
-    console.log("BootScene preload start");
-
-    // LOAD AUDIO (SUDAH TERBUKTI ADA)
-    this.load.audio("bgm", "assets/audio/bgm.mp3");
+    /* ======================
+       AUDIO
+    ====================== */
     this.load.audio("click", "assets/audio/click.wav");
     this.load.audio("collect", "assets/audio/collect.wav");
+    this.load.audio("bgm", "assets/audio/bgm.mp3");
+
+    /* ======================
+       SPRITE (placeholder)
+    ====================== */
+    this.load.image("player", "assets/player.png");
+    this.load.image("pellet", "assets/pellet.png");
+    this.load.image("wall", "assets/wall.png");
+    this.load.image("goal", "assets/goal.png");
   }
 
   create() {
-    console.log("BootScene complete → go MenuScene");
     this.scene.start("MenuScene");
   }
 }
