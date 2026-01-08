@@ -11,50 +11,71 @@ export default class GameScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
 
-    // LEVEL CONFIG
+    /* ======================
+       LEVEL CONFIG
+    ====================== */
     this.targetsLeft = this.level + 2;
     this.timeLeft = Math.max(10, 30 - this.level * 2);
 
-    // PLAYER
+    /* ======================
+       PLAYER
+    ====================== */
     this.player = this.add.rectangle(width / 2, height / 2, 32, 32, 0x00aaff);
     this.physics.add.existing(this.player);
     this.player.body.setCollideWorldBounds(true);
 
-    // TARGET
+    /* ======================
+       TARGET
+    ====================== */
     this.spawnTarget();
 
-    // UI
-    this.uiText = this.add.text(10, 10, "", { color: "#ffffff" });
+    /* ======================
+       UI
+    ====================== */
+    this.uiText = this.add.text(10, 10, "", {
+      color: "#ffffff",
+      fontSize: "14px"
+    });
     this.updateUI();
 
-    // INPUT
+    /* ======================
+       INPUT (KEYBOARD)
+    ====================== */
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys("W,A,S,D");
 
-    // COLLISION
-    this.physics.add.overlap(this.player, this.target, this.collectTarget, null, this);
+    /* ======================
+       COLLISION
+    ====================== */
+    this.physics.add.overlap(
+      this.player,
+      this.target,
+      this.collectTarget,
+      null,
+      this
+    );
 
-    // TIMER
-    this.timerEvent = this.time.addEvent({
+    /* ======================
+       TIMER
+    ====================== */
+    this.time.addEvent({
       delay: 1000,
       callback: () => {
         this.timeLeft--;
         this.updateUI();
-
-        if (this.timeLeft <= 0) {
-          this.endGame();
-        }
+        if (this.timeLeft <= 0) this.endGame();
       },
       loop: true
     });
 
-    // MOBILE SWIPE
-    this.initSwipe();
+    /* ======================
+       MOBILE VIRTUAL BUTTON
+    ====================== */
+    this.createVirtualPad();
   }
 
   spawnTarget() {
     const { width, height } = this.scale;
-
     this.target = this.add.rectangle(
       Phaser.Math.Between(40, width - 40),
       Phaser.Math.Between(80, height - 40),
@@ -71,7 +92,6 @@ export default class GameScene extends Phaser.Scene {
     this.target.destroy();
 
     if (this.targetsLeft <= 0) {
-      // NEXT LEVEL
       this.scene.restart({
         level: this.level + 1,
         score: this.score
@@ -79,7 +99,6 @@ export default class GameScene extends Phaser.Scene {
     } else {
       this.spawnTarget();
     }
-
     this.updateUI();
   }
 
@@ -90,40 +109,52 @@ export default class GameScene extends Phaser.Scene {
   }
 
   endGame() {
-    this.scene.start("GameOverScene", {
-      score: this.score
-    });
+    this.scene.start("GameOverScene", { score: this.score });
   }
 
   update() {
-    const speed = 200;
+    const speed = 180;
     const body = this.player.body;
     body.setVelocity(0);
 
-    if (this.cursors.left.isDown || this.keys.A.isDown) body.setVelocityX(-speed);
-    if (this.cursors.right.isDown || this.keys.D.isDown) body.setVelocityX(speed);
-    if (this.cursors.up.isDown || this.keys.W.isDown) body.setVelocityY(-speed);
-    if (this.cursors.down.isDown || this.keys.S.isDown) body.setVelocityY(speed);
+    /* KEYBOARD */
+    if (this.cursors.left.isDown || this.keys.A.isDown || this.moveLeft)
+      body.setVelocityX(-speed);
+    if (this.cursors.right.isDown || this.keys.D.isDown || this.moveRight)
+      body.setVelocityX(speed);
+    if (this.cursors.up.isDown || this.keys.W.isDown || this.moveUp)
+      body.setVelocityY(-speed);
+    if (this.cursors.down.isDown || this.keys.S.isDown || this.moveDown)
+      body.setVelocityY(speed);
   }
 
-  // 📱 MOBILE SWIPE CONTROL
-  initSwipe() {
-    let startX, startY;
+  /* ======================
+     VIRTUAL D-PAD
+  ====================== */
+  createVirtualPad() {
+    const { width, height } = this.scale;
 
-    this.input.on("pointerdown", p => {
-      startX = p.x;
-      startY = p.y;
-    });
+    this.moveLeft = this.moveRight = this.moveUp = this.moveDown = false;
 
-    this.input.on("pointerup", p => {
-      const dx = p.x - startX;
-      const dy = p.y - startY;
+    const size = 48;
+    const alpha = 0.4;
+    const yBase = height - 100;
+    const xBase = 80;
 
-      if (Math.abs(dx) > Math.abs(dy)) {
-        this.player.body.setVelocityX(dx > 0 ? 200 : -200);
-      } else {
-        this.player.body.setVelocityY(dy > 0 ? 200 : -200);
-      }
-    });
+    const createBtn = (x, y, dir) => {
+      const btn = this.add
+        .rectangle(x, y, size, size, 0xffffff, alpha)
+        .setScrollFactor(0)
+        .setInteractive();
+
+      btn.on("pointerdown", () => (this[dir] = true));
+      btn.on("pointerup", () => (this[dir] = false));
+      btn.on("pointerout", () => (this[dir] = false));
+    };
+
+    createBtn(xBase - size, yBase, "moveLeft");
+    createBtn(xBase + size, yBase, "moveRight");
+    createBtn(xBase, yBase - size, "moveUp");
+    createBtn(xBase, yBase + size, "moveDown");
   }
 }
