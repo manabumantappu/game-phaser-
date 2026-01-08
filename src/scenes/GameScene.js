@@ -9,10 +9,27 @@ export default class GameScene extends Phaser.Scene {
   }
 
   create() {
+    /* ======================
+       DIFFICULTY CURVE
+    ====================== */
     this.tileSize = 48;
-    this.cols = 9;
-    this.rows = 9;
+    this.cols = Math.min(9 + this.level * 2, 21);
+    this.rows = Math.min(9 + this.level * 2, 21);
 
+    /* ======================
+       AUDIO (BGM)
+    ====================== */
+    if (!this.sound.get("bgm")) {
+      this.bgm = this.sound.add("bgm", {
+        loop: true,
+        volume: 0.4
+      });
+      this.bgm.play();
+    }
+
+    /* ======================
+       MAZE
+    ====================== */
     this.generateMaze();
     this.createUI();
     this.createControls();
@@ -22,20 +39,18 @@ export default class GameScene extends Phaser.Scene {
 
   /* ======================
      MAZE GENERATOR (DFS)
+     0 = wall, 1 = path
   ====================== */
   generateMaze() {
     const cols = this.cols;
     const rows = this.rows;
 
-    // grid: 0 = wall, 1 = path
     this.grid = Array.from({ length: rows }, () =>
       Array(cols).fill(0)
     );
 
-    const stack = [];
     const carve = (x, y) => {
       this.grid[y][x] = 1;
-      stack.push([x, y]);
 
       const dirs = Phaser.Utils.Array.Shuffle([
         [1, 0], [-1, 0], [0, 1], [0, -1]
@@ -44,6 +59,7 @@ export default class GameScene extends Phaser.Scene {
       for (const [dx, dy] of dirs) {
         const nx = x + dx * 2;
         const ny = y + dy * 2;
+
         if (nx > 0 && ny > 0 && nx < cols - 1 && ny < rows - 1) {
           if (this.grid[ny][nx] === 0) {
             this.grid[y + dy][x + dx] = 1;
@@ -54,12 +70,12 @@ export default class GameScene extends Phaser.Scene {
     };
 
     carve(1, 1);
-
     this.drawMaze();
   }
 
   drawMaze() {
     const t = this.tileSize;
+
     this.walls = this.physics.add.staticGroup();
     this.targets = this.physics.add.group();
 
@@ -75,19 +91,31 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
-    // Player
-    this.player = this.add.rectangle(t * 1.5, t * 1.5, t * 0.6, t * 0.6, 0x00aaff);
+    /* PLAYER */
+    this.player = this.add.rectangle(
+      t * 1.5,
+      t * 1.5,
+      t * 0.6,
+      t * 0.6,
+      0x00aaff
+    );
     this.physics.add.existing(this.player);
     this.player.body.setCollideWorldBounds(true);
 
-    // Targets (always reachable)
-    this.targetsLeft = Math.min(3 + this.level, 6);
+    /* TARGETS */
+    this.targetsLeft = Math.min(2 + Math.floor(this.level * 1.5), 10);
     for (let i = 0; i < this.targetsLeft; i++) {
       this.spawnTarget();
     }
 
     this.physics.add.collider(this.player, this.walls);
-    this.physics.add.overlap(this.player, this.targets, this.collectTarget, null, this);
+    this.physics.add.overlap(
+      this.player,
+      this.targets,
+      this.collectTarget,
+      null,
+      this
+    );
   }
 
   spawnTarget() {
@@ -113,8 +141,13 @@ export default class GameScene extends Phaser.Scene {
      UI
   ====================== */
   createUI() {
-    this.timeLeft = Math.max(20, 60 - this.level * 2);
-    this.uiText = this.add.text(10, 10, "", { color: "#fff" }).setDepth(1000);
+    this.timeLeft = Math.max(15, 70 - this.level * 3);
+
+    this.uiText = this.add.text(10, 10, "", {
+      color: "#ffffff",
+      fontSize: "14px"
+    }).setDepth(1000);
+
     this.updateUI();
   }
 
@@ -124,6 +157,9 @@ export default class GameScene extends Phaser.Scene {
     );
   }
 
+  /* ======================
+     TIMER
+  ====================== */
   createTimer() {
     this.time.addEvent({
       delay: 1000,
@@ -131,6 +167,7 @@ export default class GameScene extends Phaser.Scene {
       callback: () => {
         this.timeLeft--;
         this.updateUI();
+
         if (this.timeLeft <= 0) {
           this.scene.start("GameOverScene", { score: this.score });
         }
@@ -138,14 +175,26 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
+  /* ======================
+     GAME LOGIC
+  ====================== */
   collectTarget(player, target) {
     target.destroy();
     this.targetsLeft--;
     this.score += 10;
+
+    this.sound.play("collect", { volume: 0.7 });
     navigator.vibrate?.(30);
+
     this.updateUI();
 
     if (this.targetsLeft <= 0) {
+      const unlocked = Math.max(
+        this.level + 1,
+        parseInt(localStorage.getItem("unlockedLevel") || "1")
+      );
+      localStorage.setItem("unlockedLevel", unlocked);
+
       this.scene.restart({
         level: this.level + 1,
         score: this.score
@@ -165,41 +214,57 @@ export default class GameScene extends Phaser.Scene {
     const b = this.player.body;
     b.setVelocity(0);
 
+    // Keyboard
     if (this.cursors.left.isDown) b.setVelocityX(-speed);
     if (this.cursors.right.isDown) b.setVelocityX(speed);
     if (this.cursors.up.isDown) b.setVelocityY(-speed);
     if (this.cursors.down.isDown) b.setVelocityY(speed);
 
+    // Joystick
     if (this.joyActive) {
-      b.setVelocity(this.joyVector.x * speed, this.joyVector.y * speed);
+      b.setVelocity(
+        this.joyVector.x * speed,
+        this.joyVector.y * speed
+      );
     }
   }
 
+  /* ======================
+     ANALOG JOYSTICK
+  ====================== */
   createJoystick() {
     this.joyActive = false;
     this.joyVector = new Phaser.Math.Vector2();
 
     const h = this.scale.height;
-    this.base = this.add.circle(90, h - 110, 40, 0xffffff, 0.25).setDepth(2000);
-    this.thumb = this.add.circle(90, h - 110, 20, 0xffffff, 0.6).setDepth(2001);
+
+    this.joyBase = this.add.circle(
+      90, h - 110, 40, 0xffffff, 0.25
+    ).setDepth(2000);
+
+    this.joyThumb = this.add.circle(
+      90, h - 110, 20, 0xffffff, 0.6
+    ).setDepth(2001);
 
     this.input.on("pointerdown", p => {
       this.joyActive = true;
-      this.start = new Phaser.Math.Vector2(p.x, p.y);
-      this.base.setPosition(p.x, p.y);
-      this.thumb.setPosition(p.x, p.y);
+      this.joyStart = new Phaser.Math.Vector2(p.x, p.y);
+      this.joyBase.setPosition(p.x, p.y);
+      this.joyThumb.setPosition(p.x, p.y);
     });
 
     this.input.on("pointermove", p => {
       if (!this.joyActive) return;
-      const dx = p.x - this.start.x;
-      const dy = p.y - this.start.y;
-      const len = Math.min(40, Math.hypot(dx, dy));
-      const a = Math.atan2(dy, dx);
-      this.joyVector.set(Math.cos(a), Math.sin(a));
-      this.thumb.setPosition(
-        this.start.x + Math.cos(a) * len,
-        this.start.y + Math.sin(a) * len
+
+      const dx = p.x - this.joyStart.x;
+      const dy = p.y - this.joyStart.y;
+      const dist = Math.min(40, Math.hypot(dx, dy));
+      const angle = Math.atan2(dy, dx);
+
+      this.joyVector.set(Math.cos(angle), Math.sin(angle));
+      this.joyThumb.setPosition(
+        this.joyStart.x + Math.cos(angle) * dist,
+        this.joyStart.y + Math.sin(angle) * dist
       );
     });
 
