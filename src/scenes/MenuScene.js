@@ -59,18 +59,7 @@ export default class MenuScene extends Phaser.Scene {
       }
     );
 
-    this.createButton(
-      width / 2,
-      height * 0.65,
-      "LEVEL SELECT",
-      () => {
-        this.unlockAudio();
-        this.safePlayClick();
-        this.scene.start("LevelSelectScene");
-      }
-    );
-
-    /* ======================
+       /* ======================
        FOOTER
     ====================== */
     this.add.text(
