@@ -12,12 +12,24 @@ export default class GameScene extends Phaser.Scene {
 
   create() {
     this.levelData = LEVELS[this.levelIndex];
-
     this.cursors = this.input.keyboard.createCursorKeys();
 
-    // SOUNDS
-    this.sfxEat = this.sound.add("eat");
-    this.sfxWin = this.sound.add("win");
+    /* ======================
+       AUDIO (FIXED)
+    ====================== */
+    this.sfxCollect = this.sound.add("collect", { volume: 0.8 });
+    this.sfxClick = this.sound.add("click", { volume: 0.6 });
+
+    // BGM — hanya dibuat 1x
+    if (!this.sound.get("bgm")) {
+      this.bgm = this.sound.add("bgm", {
+        loop: true,
+        volume: 0.4
+      });
+      this.bgm.play();
+    } else {
+      this.bgm = this.sound.get("bgm");
+    }
 
     this.createWorld();
     this.createPlayer();
@@ -40,7 +52,7 @@ export default class GameScene extends Phaser.Scene {
       this.pellets.create(p.x, p.y, "pellet");
     });
 
-    // GOAL
+    // GOAL (muncul setelah pellet habis)
     this.goal = this.physics.add.staticImage(
       this.levelData.goal.x,
       this.levelData.goal.y,
@@ -60,9 +72,9 @@ export default class GameScene extends Phaser.Scene {
 
     this.physics.add.collider(this.player, this.walls);
 
-    this.physics.add.overlap(this.player, this.pellets, (_, p) => {
-      p.destroy();
-      this.sfxEat.play();
+    this.physics.add.overlap(this.player, this.pellets, (_, pellet) => {
+      pellet.destroy();
+      this.sfxCollect.play();
 
       if (this.pellets.countActive(true) === 0) {
         this.goal.setVisible(true);
@@ -70,7 +82,7 @@ export default class GameScene extends Phaser.Scene {
     });
 
     this.physics.add.overlap(this.player, this.goal, () => {
-      this.sfxWin.play();
+      this.sfxClick.play();
       this.nextLevel();
     });
   }
@@ -94,6 +106,7 @@ export default class GameScene extends Phaser.Scene {
     let vx = 0;
     let vy = 0;
 
+    // KEYBOARD
     if (this.cursors.left.isDown) vx = -speed;
     else if (this.cursors.right.isDown) vx = speed;
 
