@@ -226,6 +226,14 @@ export default class GameScene extends Phaser.Scene {
     return true;
   }
 
+  snapToCenter(sprite) {
+  const cx = Math.round(sprite.x / TILE) * TILE;
+  const cy =
+    Math.round((sprite.y - HUD_HEIGHT) / TILE) * TILE + HUD_HEIGHT;
+
+  sprite.setPosition(cx, cy);
+}
+
   /* =====================
      WIN
   ===================== */
