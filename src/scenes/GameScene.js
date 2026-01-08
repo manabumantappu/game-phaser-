@@ -46,21 +46,54 @@ export default class GameScene extends Phaser.Scene {
      HUD
   ===================== */
   createHUD() {
-    this.hudScore = this.add.text(12, 8, `SCORE: ${this.score}`, {
-      fontSize: "16px",
-      color: "#ffff00",
-      fontStyle: "bold"
-    }).setScrollFactor(0);
+  const padding = 10;
 
-    this.hudLevel = this.add.text(200, 8, `LEVEL ${this.levelIndex + 1}`, {
-      fontSize: "16px",
+  // Background HUD (semi transparan)
+  this.hudBg = this.add.rectangle(
+    this.scale.width / 2,
+    24,
+    this.scale.width,
+    48,
+    0x000000,
+    0.5
+  )
+  .setOrigin(0.5)
+  .setScrollFactor(0)
+  .setDepth(20);
+
+  // SCORE
+  this.hudScore = this.add.text(
+    padding,
+    8,
+    `🟡 ${this.score}`,
+    {
+      fontSize: "20px",
+      fontStyle: "bold",
+      color: "#ffff00"
+    }
+  )
+  .setScrollFactor(0)
+  .setDepth(21);
+
+  // LEVEL
+  this.hudLevel = this.add.text(
+    this.scale.width - padding,
+    8,
+    `👻 L${this.levelIndex + 1}`,
+    {
+      fontSize: "20px",
+      fontStyle: "bold",
       color: "#ffffff"
-    }).setScrollFactor(0);
-  }
+    }
+  )
+  .setOrigin(1, 0)
+  .setScrollFactor(0)
+  .setDepth(21);
+}
 
   updateHUD() {
-    this.hudScore.setText(`SCORE: ${this.score}`);
-  }
+  this.hudScore.setText(`🟡 ${this.score}`);
+}
 
   /* =====================
      MAP
