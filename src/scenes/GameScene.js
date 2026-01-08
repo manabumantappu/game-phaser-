@@ -4,79 +4,103 @@ export default class GameScene extends Phaser.Scene {
   }
 
   init(data) {
-    this.level = data.level || 1;
+    this.level = data.level || 0;
     this.score = data.score || 0;
   }
 
   create() {
-    const { width, height } = this.scale;
-
     /* ======================
-       LEVEL CONFIG
+       MAZE DEFINITIONS
     ====================== */
-    this.targetsLeft = this.level + 2;
-    this.timeLeft = Math.max(10, 30 - this.level * 2);
-    this.obstacleCount = Math.min(this.level + 1, 8);
+    this.mazes = [
+      [
+        "##########",
+        "#P....T..#",
+        "#.####.#.#",
+        "#....#.#.#",
+        "#.##.#.#.#",
+        "#.#..#...#",
+        "#.#.####.#",
+        "#...#..T.#",
+        "#.###.##.#",
+        "##########"
+      ],
+      [
+        "##########",
+        "#P.#....T#",
+        "#.#.####.#",
+        "#.#......#",
+        "#.######.#",
+        "#....#...#",
+        "####.#.#.#",
+        "#T...#.#.#",
+        "#.#####..#",
+        "##########"
+      ]
+    ];
 
-    /* ======================
-       PLAYER
-    ====================== */
-    this.player = this.add.rectangle(width / 2, height / 2, 32, 32, 0x00aaff);
-    this.physics.add.existing(this.player);
-    this.player.body.setCollideWorldBounds(true);
+    this.tileSize = 48;
+    this.map = this.mazes[this.level % this.mazes.length];
 
-    /* ======================
-       OBSTACLES
-    ====================== */
-    this.obstacles = this.physics.add.staticGroup();
+    this.createMaze();
+    this.createUI();
+    this.createControls();
+    this.createTimer();
+  }
 
-    for (let i = 0; i < this.obstacleCount; i++) {
-      const block = this.add.rectangle(
-        Phaser.Math.Between(60, width - 60),
-        Phaser.Math.Between(120, height - 60),
-        40,
-        40,
-        0xff4444
-      );
-      this.obstacles.add(block);
-    }
+  createMaze() {
+    const maze = this.map;
+    const tile = this.tileSize;
 
-    this.physics.add.collider(this.player, this.obstacles);
+    this.walls = this.physics.add.staticGroup();
+    this.targets = this.physics.add.group();
 
-    /* ======================
-       TARGET
-    ====================== */
-    this.spawnTarget();
+    maze.forEach((row, y) => {
+      [...row].forEach((cell, x) => {
+        const px = x * tile + tile / 2;
+        const py = y * tile + tile / 2;
 
-    /* ======================
-       UI
-    ====================== */
+        if (cell === "#") {
+          const wall = this.add.rectangle(px, py, tile, tile, 0xaa3333);
+          this.walls.add(wall);
+        }
+
+        if (cell === "P") {
+          this.player = this.add.rectangle(px, py, tile * 0.6, tile * 0.6, 0x00aaff);
+          this.physics.add.existing(this.player);
+          this.player.body.setCollideWorldBounds(true);
+        }
+
+        if (cell === "T") {
+          const target = this.add.rectangle(px, py, tile * 0.5, tile * 0.5, 0xffcc00);
+          this.physics.add.existing(target);
+          this.targets.add(target);
+        }
+      });
+    });
+
+    this.targetsLeft = this.targets.getChildren().length;
+
+    this.physics.add.collider(this.player, this.walls);
+    this.physics.add.overlap(this.player, this.targets, this.collectTarget, null, this);
+  }
+
+  createUI() {
+    this.timeLeft = 40;
     this.uiText = this.add.text(10, 10, "", {
       color: "#ffffff",
       fontSize: "14px"
     });
     this.updateUI();
+  }
 
-    /* ======================
-       INPUT
-    ====================== */
+  createControls() {
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys("W,A,S,D");
+    this.createVirtualPad();
+  }
 
-    /* ======================
-       COLLISION
-    ====================== */
-    this.physics.add.overlap(
-      this.player,
-      this.target,
-      this.collectTarget,
-      null,
-      this
-    );
-
-    /* ======================
-       TIMER
-    ====================== */
+  createTimer() {
     this.time.addEvent({
       delay: 1000,
       callback: () => {
@@ -86,45 +110,25 @@ export default class GameScene extends Phaser.Scene {
       },
       loop: true
     });
-
-    /* ======================
-       MOBILE CONTROL
-    ====================== */
-    this.createVirtualPad();
   }
 
-  spawnTarget() {
-    const { width, height } = this.scale;
-
-    this.target = this.add.rectangle(
-      Phaser.Math.Between(40, width - 40),
-      Phaser.Math.Between(100, height - 40),
-      24,
-      24,
-      0xffcc00
-    );
-    this.physics.add.existing(this.target);
-  }
-
-  collectTarget() {
-    this.score += 10;
+  collectTarget(player, target) {
+    target.destroy();
     this.targetsLeft--;
-    this.target.destroy();
+    this.score += 10;
+    this.updateUI();
 
     if (this.targetsLeft <= 0) {
       this.scene.restart({
         level: this.level + 1,
         score: this.score
       });
-    } else {
-      this.spawnTarget();
     }
-    this.updateUI();
   }
 
   updateUI() {
     this.uiText.setText(
-      `Level: ${this.level}\nScore: ${this.score}\nTargets: ${this.targetsLeft}\nTime: ${this.timeLeft}`
+      `Level: ${this.level + 1}\nScore: ${this.score}\nTargets: ${this.targetsLeft}\nTime: ${this.timeLeft}`
     );
   }
 
@@ -133,7 +137,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   update() {
-    const speed = 180;
+    const speed = 150;
     const body = this.player.body;
     body.setVelocity(0);
 
@@ -152,7 +156,6 @@ export default class GameScene extends Phaser.Scene {
   ====================== */
   createVirtualPad() {
     const { width, height } = this.scale;
-
     this.moveLeft = this.moveRight = this.moveUp = this.moveDown = false;
 
     const size = 48;
