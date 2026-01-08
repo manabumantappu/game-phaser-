@@ -27,10 +27,11 @@ const config = {
   },
 
   scene: [
-    BootScene,
-    MenuScene,
-    GameScene,
-    GameOverScene
+  BootScene,
+  MenuScene,
+  LevelSelectScene,
+  GameScene,
+  GameOverScene
   ]
 };
 
