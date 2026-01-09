@@ -226,44 +226,55 @@ export default class GameScene extends Phaser.Scene {
   /* =====================
      UPDATE
   ===================== */
-  update() {
-    if (this.isPaused) return;
+ update() {
+  if (this.isPaused) return;
+  if (!this.player) return;
 
+  /* =====================
+     RESET INPUT
+  ===================== */
   this.nextDir = { x: 0, y: 0 };
 
-// KEYBOARD
-if (this.cursors.left?.isDown) this.nextDir = { x: -1, y: 0 };
-else if (this.cursors.right?.isDown) this.nextDir = { x: 1, y: 0 };
-else if (this.cursors.up?.isDown) this.nextDir = { x: 0, y: -1 };
-else if (this.cursors.down?.isDown) this.nextDir = { x: 0, y: 1 };
+  /* =====================
+     KEYBOARD INPUT
+  ===================== */
+  if (this.cursors.left?.isDown) this.nextDir = { x: -1, y: 0 };
+  else if (this.cursors.right?.isDown) this.nextDir = { x: 1, y: 0 };
+  else if (this.cursors.up?.isDown) this.nextDir = { x: 0, y: -1 };
+  else if (this.cursors.down?.isDown) this.nextDir = { x: 0, y: 1 };
 
-// JOYSTICK
-if (this.joystick && (this.joystick.forceX || this.joystick.forceY)) {
-  if (Math.abs(this.joystick.forceX) > Math.abs(this.joystick.forceY)) {
-    this.nextDir = { x: Math.sign(this.joystick.forceX), y: 0 };
-  } else {
-    this.nextDir = { x: 0, y: Math.sign(this.joystick.forceY) };
+  /* =====================
+     JOYSTICK INPUT
+  ===================== */
+  if (this.joystick && (this.joystick.forceX || this.joystick.forceY)) {
+    if (Math.abs(this.joystick.forceX) > Math.abs(this.joystick.forceY)) {
+      this.nextDir = { x: Math.sign(this.joystick.forceX), y: 0 };
+    } else {
+      this.nextDir = { x: 0, y: Math.sign(this.joystick.forceY) };
+    }
   }
+
+  /* =====================
+     UPDATE CURRENT DIR
+  ===================== */
+  if (this.nextDir.x !== 0 || this.nextDir.y !== 0) {
+    this.currentDir = this.nextDir;
+  }
+
+  /* =====================
+     APPLY VELOCITY (ONCE)
+  ===================== */
+  this.player.setVelocity(
+    this.currentDir.x * PLAYER_SPEED,
+    this.currentDir.y * PLAYER_SPEED
+  );
+
+  /* =====================
+     MOVE GHOSTS
+  ===================== */
+  this.moveGhosts();
 }
 
-this.player.setVelocity(
-  this.nextDir.x * PLAYER_SPEED,
-  this.nextDir.y * PLAYER_SPEED
-);
-
-
-    // simpan arah terakhir
-    if (this.nextDir.x !== 0 || this.nextDir.y !== 0) {
-      this.currentDir = this.nextDir;
-    }
-
-    this.player.setVelocity(
-      this.currentDir.x * PLAYER_SPEED,
-      this.currentDir.y * PLAYER_SPEED
-    );
-
-    this.moveGhosts();
-  }
 
   /* =====================
      GHOST MOVE
