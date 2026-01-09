@@ -229,23 +229,28 @@ export default class GameScene extends Phaser.Scene {
   update() {
     if (this.isPaused) return;
 
-    // keyboard
-    if (this.cursors.left.isDown) this.nextDir = { x: -1, y: 0 };
-    else if (this.cursors.right.isDown) this.nextDir = { x: 1, y: 0 };
-    else if (this.cursors.up.isDown) this.nextDir = { x: 0, y: -1 };
-    else if (this.cursors.down.isDown) this.nextDir = { x: 0, y: 1 };
+  this.nextDir = { x: 0, y: 0 };
 
-    // joystick (DESKTOP SAFE)
-    if (
-      Math.abs(this.joystick.forceX) > 0.1 ||
-      Math.abs(this.joystick.forceY) > 0.1
-    ) {
-      if (Math.abs(this.joystick.forceX) > Math.abs(this.joystick.forceY)) {
-        this.nextDir = { x: Math.sign(this.joystick.forceX), y: 0 };
-      } else {
-        this.nextDir = { x: 0, y: Math.sign(this.joystick.forceY) };
-      }
-    }
+// KEYBOARD
+if (this.cursors.left?.isDown) this.nextDir = { x: -1, y: 0 };
+else if (this.cursors.right?.isDown) this.nextDir = { x: 1, y: 0 };
+else if (this.cursors.up?.isDown) this.nextDir = { x: 0, y: -1 };
+else if (this.cursors.down?.isDown) this.nextDir = { x: 0, y: 1 };
+
+// JOYSTICK
+if (this.joystick && (this.joystick.forceX || this.joystick.forceY)) {
+  if (Math.abs(this.joystick.forceX) > Math.abs(this.joystick.forceY)) {
+    this.nextDir = { x: Math.sign(this.joystick.forceX), y: 0 };
+  } else {
+    this.nextDir = { x: 0, y: Math.sign(this.joystick.forceY) };
+  }
+}
+
+this.player.setVelocity(
+  this.nextDir.x * PLAYER_SPEED,
+  this.nextDir.y * PLAYER_SPEED
+);
+
 
     // simpan arah terakhir
     if (this.nextDir.x !== 0 || this.nextDir.y !== 0) {
