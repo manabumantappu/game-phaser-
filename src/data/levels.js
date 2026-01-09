@@ -1,6 +1,5 @@
 export const LEVELS = [
-
-/* =========================
+ /* =========================
    LEVEL 1 (INTRO)
 ========================= */
 {
@@ -14,7 +13,7 @@ export const LEVELS = [
     "1111111111111"
   ],
   player: { x: 1, y: 1 },
-  ghosts: [{ x: 6, y: 3, type: "blinky" }]
+  ghosts: [{ x: 6, y: 3 }]
 },
 
 /* =========================
@@ -31,7 +30,7 @@ export const LEVELS = [
     "1111111111111"
   ],
   player: { x: 1, y: 5 },
-  ghosts: [{ x: 6, y: 1, type: "blinky" }]
+  ghosts: [{ x: 6, y: 1 }]
 },
 
 /* =========================
@@ -48,7 +47,7 @@ export const LEVELS = [
     "1111111111111"
   ],
   player: { x: 6, y: 3 },
-  ghosts: [{ x: 1, y: 1, type: "blinky" }]
+  ghosts: [{ x: 1, y: 1 }]
 },
 
 /* =========================
@@ -65,10 +64,7 @@ export const LEVELS = [
     "1111111111111"
   ],
   player: { x: 1, y: 1 },
-  ghosts: [
-    { x: 11, y: 5, type: "blinky" },
-    { x: 1, y: 5, type: "pinky" }
-  ]
+  ghosts: [{ x: 11, y: 5 }]
 },
 
 /* =========================
@@ -85,10 +81,7 @@ export const LEVELS = [
     "1111111111111"
   ],
   player: { x: 6, y: 1 },
-  ghosts: [
-    { x: 6, y: 5, type: "blinky" },
-    { x: 1, y: 1, type: "pinky" }
-  ]
+  ghosts: [{ x: 6, y: 5 }]
 },
 
 /* =========================
@@ -105,10 +98,7 @@ export const LEVELS = [
     "1111111111111"
   ],
   player: { x: 6, y: 3 },
-  ghosts: [
-    { x: 3, y: 1, type: "blinky" },
-    { x: 9, y: 5, type: "pinky" }
-  ]
+  ghosts: [{ x: 3, y: 1 }, { x: 9, y: 5 }]
 },
 
 /* =========================
@@ -125,11 +115,7 @@ export const LEVELS = [
     "1111111111111"
   ],
   player: { x: 1, y: 3 },
-  ghosts: [
-    { x: 11, y: 3, type: "blinky" },
-    { x: 1, y: 1, type: "pinky" },
-    { x: 1, y: 5, type: "inky" }
-  ]
+  ghosts: [{ x: 11, y: 3 }]
 },
 
 /* =========================
@@ -146,11 +132,7 @@ export const LEVELS = [
     "1111111111111"
   ],
   player: { x: 1, y: 1 },
-  ghosts: [
-    { x: 11, y: 5, type: "blinky" },
-    { x: 1, y: 5, type: "pinky" },
-    { x: 6, y: 3, type: "inky" }
-  ]
+  ghosts: [{ x: 11, y: 5 }]
 },
 
 /* =========================
@@ -167,11 +149,7 @@ export const LEVELS = [
     "1111111111111"
   ],
   player: { x: 6, y: 3 },
-  ghosts: [
-    { x: 1, y: 1, type: "blinky" },
-    { x: 11, y: 5, type: "pinky" },
-    { x: 6, y: 1, type: "inky" }
-  ]
+  ghosts: [{ x: 1, y: 1 }, { x: 11, y: 5 }]
 },
 
 /* =========================
@@ -189,13 +167,11 @@ export const LEVELS = [
   ],
   player: { x: 6, y: 3 },
   ghosts: [
-    { x: 1, y: 1, type: "blinky" },
-    { x: 11, y: 1, type: "pinky" },
-    { x: 6, y: 5, type: "inky" },
-    { x: 6, y: 1, type: "clyde" }
+    { x: 1, y: 1 },
+    { x: 11, y: 1 },
+    { x: 6, y: 5 }
   ]
 },
-
 /* =========================
    LEVEL 11 (LOOPS)
 ========================= */
@@ -210,14 +186,8 @@ export const LEVELS = [
     "1111111111111"
   ],
   player: { x: 1, y: 1 },
-  ghosts: [
-    { x: 11, y: 5, type: "blinky" },
-    { x: 1, y: 5, type: "pinky" },
-    { x: 6, y: 1, type: "inky" },
-    { x: 6, y: 5, type: "clyde" }
-  ]
+  ghosts: [{ x: 11, y: 5 }]
 },
-
 /* =========================
    LEVEL 12 (SPLIT)
 ========================= */
@@ -232,14 +202,8 @@ export const LEVELS = [
     "1111111111111"
   ],
   player: { x: 6, y: 3 },
-  ghosts: [
-    { x: 1, y: 1, type: "blinky" },
-    { x: 11, y: 5, type: "pinky" },
-    { x: 1, y: 5, type: "inky" },
-    { x: 11, y: 1, type: "clyde" }
-  ]
+  ghosts: [{ x: 1, y: 1 }, { x: 11, y: 5 }]
 },
-
 /* =========================
    LEVEL 13 (RING)
 ========================= */
@@ -254,14 +218,8 @@ export const LEVELS = [
     "1111111111111"
   ],
   player: { x: 6, y: 3 },
-  ghosts: [
-    { x: 1, y: 1, type: "blinky" },
-    { x: 11, y: 1, type: "pinky" },
-    { x: 1, y: 5, type: "inky" },
-    { x: 11, y: 5, type: "clyde" }
-  ]
+  ghosts: [{ x: 1, y: 1 }, { x: 11, y: 1 }]
 },
-
 /* =========================
    LEVEL 14 (CROSS CHAOS)
 ========================= */
@@ -277,13 +235,10 @@ export const LEVELS = [
   ],
   player: { x: 6, y: 3 },
   ghosts: [
-    { x: 1, y: 3, type: "blinky" },
-    { x: 11, y: 3, type: "pinky" },
-    { x: 6, y: 1, type: "inky" },
-    { x: 6, y: 5, type: "clyde" }
+    { x: 1, y: 3 },
+    { x: 11, y: 3 }
   ]
 },
-
 /* =========================
    LEVEL 15 (FINAL LOOP)
 ========================= */
@@ -299,11 +254,11 @@ export const LEVELS = [
   ],
   player: { x: 6, y: 3 },
   ghosts: [
-    { x: 1, y: 1, type: "blinky" },
-    { x: 11, y: 1, type: "pinky" },
-    { x: 1, y: 5, type: "inky" },
-    { x: 11, y: 5, type: "clyde" }
+    { x: 1, y: 1 },
+    { x: 11, y: 1 },
+    { x: 6, y: 5 }
   ]
 }
 
+ 
 ];
