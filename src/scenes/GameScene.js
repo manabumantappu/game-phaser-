@@ -6,7 +6,7 @@ import VirtualJoystick from "../ui/VirtualJoystick.js";
 ===================== */
 const TILE = 32;
 const HUD_HEIGHT = 80;
-const MOVE_DURATION = 260;
+const MOVE_TIME = 260;
 const POWER_TIME = 6000;
 
 /* =====================
@@ -20,61 +20,79 @@ export default class GameScene extends Phaser.Scene {
   /* =====================
      INIT
   ===================== */
-  init(data) {
+  init(data = {}) {
     this.levelIndex = data.level ?? 0;
     this.score = data.score ?? 0;
     this.lives = data.lives ?? 3;
 
-    this.tileX = 0;
-    this.tileY = 0;
+    this.tx = 0;
+    this.ty = 0;
     this.moving = false;
 
-    this.currentDir = { x: 0, y: 0 };
+    this.dir = { x: 0, y: 0 };
     this.nextDir = { x: 0, y: 0 };
 
     this.frightened = false;
-    this.frightenedTimer = null;
+    this.frightTimer = null;
 
     this.ghostSpeedBonus = Math.min(this.levelIndex * 20, 160);
+
     this.ghosts = [];
+    this.isPaused = false;
+    this.isMuted = false;
   }
 
   /* =====================
      CREATE
   ===================== */
   create() {
+    // === LEVEL SAFETY ===
     this.level = LEVELS[this.levelIndex];
-    if (!this.level) return;
-
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.joystick = new VirtualJoystick(this);
-
-    // unlock audio mobile
-    this.input.once("pointerdown", () => {
-      if (this.sound.context.state === "suspended") {
-        this.sound.context.resume();
-      }
-    });
-
-    // SFX
-    this.sfxCollect = this.sound.add("collect", { volume: 0.8 });
-    this.sfxPower = this.sound.add("click", { volume: 0.7 });
-    this.sfxFrightened = this.sound.add("frightened", {
-      loop: true,
-      volume: 0.5
-    });
-
-    // ✅ BGM SAFE
-    this.bgm = this.sound.get("bgm");
-    if (!this.bgm) {
-      this.bgm = this.sound.add("bgm", { loop: true, volume: 0.4 });
-      this.bgm.play();
+    if (!this.level) {
+      console.error("LEVEL NOT FOUND");
+      return;
     }
 
+    // === INPUT ===
+    this.cursors = this.input.keyboard.createCursorKeys();
+
+    // === JOYSTICK (SAFE) ===
+    try {
+      this.joystick = new VirtualJoystick(this);
+    } catch (e) {
+      console.warn("Joystick disabled:", e);
+      this.joystick = null;
+    }
+
+    // === AUDIO SAFE ===
+    this.safeAudio("bgm", true, 0.4);
+    this.sfxCollect = this.safeAudio("collect");
+    this.sfxPower = this.safeAudio("click");
+    this.sfxFright = this.safeAudio("frightened", true, 0.5);
+
+    // === BUILD WORLD ===
     this.buildMap();
     this.createPlayer();
     this.createGhosts();
     this.createHUD();
+    this.createUIButtons();
+    this.createRunningText();
+  }
+
+  /* =====================
+     SAFE AUDIO
+  ===================== */
+  safeAudio(key, loop = false, volume = 0.8) {
+    try {
+      let s = this.sound.get(key);
+      if (!s) {
+        s = this.sound.add(key, { loop, volume });
+        if (loop) s.play();
+      }
+      return s;
+    } catch {
+      return null;
+    }
   }
 
   /* =====================
@@ -90,30 +108,57 @@ export default class GameScene extends Phaser.Scene {
       0.6
     );
 
-    this.hudScore = this.add.text(12, 22, `SCORE ${this.score}`, {
-      fontSize: "18px",
-      color: "#ffff00",
-      fontStyle: "bold"
-    });
+    this.txtScore = this.add.text(12, 22, "", { color: "#ffff00" });
+    this.txtLives = this.add.text(this.scale.width / 2, 22, "", { color: "#ff4444" }).setOrigin(0.5, 0);
+    this.txtLevel = this.add.text(this.scale.width - 12, 22, "", { color: "#ffffff" }).setOrigin(1, 0);
 
-    this.hudLives = this.add.text(
-      this.scale.width / 2,
-      22,
-      `❤️ ${this.lives}`,
-      { fontSize: "18px", color: "#ff4444" }
-    ).setOrigin(0.5, 0);
-
-    this.hudLevel = this.add.text(
-      this.scale.width - 12,
-      22,
-      `L${this.levelIndex + 1}`,
-      { fontSize: "18px", color: "#ffffff" }
-    ).setOrigin(1, 0);
+    this.updateHUD();
   }
 
   updateHUD() {
-    this.hudScore.setText(`SCORE ${this.score}`);
-    this.hudLives.setText(`❤️ ${this.lives}`);
+    this.txtScore.setText(`SCORE ${this.score}`);
+    this.txtLives.setText(`❤️ ${this.lives}`);
+    this.txtLevel.setText(`L${this.levelIndex + 1}`);
+  }
+
+  /* =====================
+     UI BUTTONS
+  ===================== */
+  createUIButtons() {
+    // PAUSE
+    const pauseBtn = this.add.text(12, HUD_HEIGHT - 24, "⏸", { fontSize: "18px" })
+      .setInteractive()
+      .on("pointerdown", () => {
+        this.isPaused = !this.isPaused;
+      });
+
+    // MUTE
+    const muteBtn = this.add.text(40, HUD_HEIGHT - 24, "🔊", { fontSize: "18px" })
+      .setInteractive()
+      .on("pointerdown", () => {
+        this.isMuted = !this.isMuted;
+        this.sound.mute = this.isMuted;
+        muteBtn.setText(this.isMuted ? "🔇" : "🔊");
+      });
+  }
+
+  /* =====================
+     RUNNING TEXT
+  ===================== */
+  createRunningText() {
+    const txt = this.add.text(
+      this.scale.width - 10,
+      this.scale.height - 40,
+      "MANABU MANTAPPU",
+      { color: "#ffffff" }
+    ).setOrigin(1, 0);
+
+    this.tweens.add({
+      targets: txt,
+      x: -200,
+      duration: 8000,
+      repeat: -1
+    });
   }
 
   /* =====================
@@ -123,28 +168,23 @@ export default class GameScene extends Phaser.Scene {
     this.pellets = [];
     this.totalPellets = 0;
 
-    this.mapWidth = this.level.map[0].length;
-    this.mapHeight = this.level.map.length;
+    this.mapW = this.level.map[0].length;
+    this.mapH = this.level.map.length;
 
     this.level.map.forEach((row, y) => {
       this.pellets[y] = [];
-      [...row].forEach((cell, x) => {
+      [...row].forEach((c, x) => {
         const px = x * TILE + TILE / 2;
         const py = HUD_HEIGHT + y * TILE + TILE / 2;
 
-        if (cell === "1") {
+        if (c === "1") {
           this.add.image(px, py, "wall").setDisplaySize(TILE, TILE);
-          this.pellets[y][x] = null;
-        }
-        else if (cell === "0" || cell === "2") {
+        } else if (c === "0" || c === "2") {
           const p = this.add.image(px, py, "pellet");
-          p.isPower = cell === "2";
-          p.setDisplaySize(p.isPower ? 18 : 12, p.isPower ? 18 : 12);
-          if (p.isPower) p.setTint(0x00ff00); // 🟢 power pellet
+          p.isPower = c === "2";
+          if (p.isPower) p.setTint(0x00ff00);
           this.pellets[y][x] = p;
           this.totalPellets++;
-        } else {
-          this.pellets[y][x] = null;
         }
       });
     });
@@ -154,44 +194,33 @@ export default class GameScene extends Phaser.Scene {
      PLAYER
   ===================== */
   createPlayer() {
-    this.tileX = this.level.player.x;
-    this.tileY = this.level.player.y;
+    this.tx = this.level.player.x;
+    this.ty = this.level.player.y;
 
     this.player = this.add.sprite(
-      this.tileX * TILE + TILE / 2,
-      HUD_HEIGHT + this.tileY * TILE + TILE / 2,
+      this.tx * TILE + TILE / 2,
+      HUD_HEIGHT + this.ty * TILE + TILE / 2,
       "pacman"
-    ).setDisplaySize(28, 28);
+    );
   }
 
   /* =====================
      GHOSTS
   ===================== */
   createGhosts() {
-    this.ghosts = [];
-
-    this.level.ghosts.forEach(g => {
-      const ghost = {
-        tileX: g.x,
-        tileY: g.y,
-        spawnX: g.x,
-        spawnY: g.y,
-        type: g.type || "blinky",
-        moving: false,
-        sprite: this.add.sprite(
-          g.x * TILE + TILE / 2,
-          HUD_HEIGHT + g.y * TILE + TILE / 2,
-          "ghost"
-        ).setDisplaySize(28, 28)
-      };
-
-      if (ghost.type === "blinky") ghost.sprite.setTint(0xff0000);
-      if (ghost.type === "pinky") ghost.sprite.setTint(0xff77ff);
-      if (ghost.type === "inky") ghost.sprite.setTint(0x00ffff);
-      if (ghost.type === "clyde") ghost.sprite.setTint(0xffaa00);
-
-      this.ghosts.push(ghost);
-    });
+    this.ghosts = this.level.ghosts.map(g => ({
+      tx: g.x,
+      ty: g.y,
+      sx: g.x,
+      sy: g.y,
+      type: g.type || "blinky",
+      moving: false,
+      s: this.add.sprite(
+        g.x * TILE + TILE / 2,
+        HUD_HEIGHT + g.y * TILE + TILE / 2,
+        "ghost"
+      )
+    }));
   }
 
   /* =====================
@@ -203,22 +232,21 @@ export default class GameScene extends Phaser.Scene {
     else if (this.cursors.up.isDown) this.nextDir = { x: 0, y: -1 };
     else if (this.cursors.down.isDown) this.nextDir = { x: 0, y: 1 };
 
-    if (this.joystick.forceX || this.joystick.forceY) {
-      if (Math.abs(this.joystick.forceX) > Math.abs(this.joystick.forceY)) {
-        this.nextDir = { x: this.joystick.forceX > 0 ? 1 : -1, y: 0 };
-      } else {
-        this.nextDir = { x: 0, y: this.joystick.forceY > 0 ? 1 : -1 };
-      }
+    if (this.joystick) {
+      const fx = this.joystick.forceX;
+      const fy = this.joystick.forceY;
+      if (Math.abs(fx) > Math.abs(fy)) this.nextDir = { x: Math.sign(fx), y: 0 };
+      else if (Math.abs(fy) > 0) this.nextDir = { x: 0, y: Math.sign(fy) };
     }
   }
 
   /* =====================
-     GRID CHECK + PORTAL
+     GRID CHECK
   ===================== */
   canMove(x, y) {
-    if (x < 0) x = this.mapWidth - 1;
-    if (x >= this.mapWidth) x = 0;
-    if (y < 0 || y >= this.mapHeight) return false;
+    if (x < 0) x = this.mapW - 1;
+    if (x >= this.mapW) x = 0;
+    if (y < 0 || y >= this.mapH) return false;
     return this.level.map[y][x] !== "1";
   }
 
@@ -226,22 +254,12 @@ export default class GameScene extends Phaser.Scene {
      UPDATE
   ===================== */
   update() {
+    if (this.isPaused) return;
+
     this.readInput();
 
-    if (!this.moving) {
-      if (
-        (this.currentDir.x === 0 && this.currentDir.y === 0) &&
-        (this.nextDir.x !== 0 || this.nextDir.y !== 0) &&
-        this.canMove(this.tileX + this.nextDir.x, this.tileY + this.nextDir.y)
-      ) {
-        this.startMove(this.nextDir);
-      }
-      else if (this.canMove(this.tileX + this.nextDir.x, this.tileY + this.nextDir.y)) {
-        this.startMove(this.nextDir);
-      }
-      else if (this.canMove(this.tileX + this.currentDir.x, this.tileY + this.currentDir.y)) {
-        this.startMove(this.currentDir);
-      }
+    if (!this.moving && this.canMove(this.tx + this.nextDir.x, this.ty + this.nextDir.y)) {
+      this.movePlayer(this.nextDir);
     }
 
     this.moveGhosts();
@@ -250,167 +268,116 @@ export default class GameScene extends Phaser.Scene {
   /* =====================
      MOVE PLAYER
   ===================== */
-  startMove(dir) {
+  movePlayer(d) {
     this.moving = true;
-    this.currentDir = dir;
+    this.dir = d;
 
-    let tx = this.tileX + dir.x;
-    let ty = this.tileY + dir.y;
+    let nx = this.tx + d.x;
+    let ny = this.ty + d.y;
 
-    if (tx < 0) tx = this.mapWidth - 1;
-    if (tx >= this.mapWidth) tx = 0;
+    if (nx < 0) nx = this.mapW - 1;
+    if (nx >= this.mapW) nx = 0;
 
     this.tweens.add({
       targets: this.player,
-      x: tx * TILE + TILE / 2,
-      y: HUD_HEIGHT + ty * TILE + TILE / 2,
-      duration: MOVE_DURATION,
+      x: nx * TILE + TILE / 2,
+      y: HUD_HEIGHT + ny * TILE + TILE / 2,
+      duration: MOVE_TIME,
       onComplete: () => {
-        this.tileX = tx;
-        this.tileY = ty;
+        this.tx = nx;
+        this.ty = ny;
         this.moving = false;
 
-        const pellet = this.pellets[ty]?.[tx];
-        if (pellet) {
-          pellet.destroy();
-          this.pellets[ty][tx] = null;
+        const p = this.pellets[ny]?.[nx];
+        if (p) {
+          p.destroy();
+          this.pellets[ny][nx] = null;
           this.totalPellets--;
-          this.score += pellet.isPower ? 50 : 10;
-          this.sfxCollect.play();
-          if (pellet.isPower) this.startFrightenedMode();
+          this.score += p.isPower ? 50 : 10;
+          if (p.isPower) this.startFrightened();
           this.updateHUD();
         }
 
-        if (this.totalPellets === 0) {
-          this.showLevelClear();
-        }
+        if (this.totalPellets === 0) this.levelClear();
       }
     });
   }
 
   /* =====================
-     MOVE GHOSTS
+     GHOST MOVE
   ===================== */
   moveGhosts() {
     this.ghosts.forEach(g => {
       if (g.moving) return;
 
-      const dx = this.tileX - g.tileX;
-      const dy = this.tileY - g.tileY;
-
-      let dir = Math.abs(dx) > Math.abs(dy)
+      const dx = this.tx - g.tx;
+      const dy = this.ty - g.ty;
+      const d = Math.abs(dx) > Math.abs(dy)
         ? { x: Math.sign(dx), y: 0 }
         : { x: 0, y: Math.sign(dy) };
 
-      let nx = g.tileX + dir.x;
-      let ny = g.tileY + dir.y;
+      const nx = g.tx + d.x;
+      const ny = g.ty + d.y;
 
       if (!this.canMove(nx, ny)) return;
 
       g.moving = true;
       this.tweens.add({
-        targets: g.sprite,
+        targets: g.s,
         x: nx * TILE + TILE / 2,
         y: HUD_HEIGHT + ny * TILE + TILE / 2,
-        duration: this.frightened
-          ? MOVE_DURATION + 160
-          : MOVE_DURATION + 40 - this.ghostSpeedBonus,
+        duration: MOVE_TIME + 40 - this.ghostSpeedBonus,
         onComplete: () => {
-          g.tileX = nx;
-          g.tileY = ny;
+          g.tx = nx;
+          g.ty = ny;
           g.moving = false;
 
-          if (g.tileX === this.tileX && g.tileY === this.tileY) {
-            this.onHitGhost(g);
-          }
+          if (g.tx === this.tx && g.ty === this.ty) this.hitGhost(g);
         }
       });
     });
   }
 
   /* =====================
-     FRIGHTENED MODE
+     FRIGHTENED
   ===================== */
-  startFrightenedMode() {
+  startFrightened() {
     this.frightened = true;
-    this.sfxPower.play();
+    if (this.sfxFright && !this.sfxFright.isPlaying) this.sfxFright.play();
 
-    if (this.bgm && this.bgm.isPlaying) this.bgm.pause();
-    if (!this.sfxFrightened.isPlaying) this.sfxFrightened.play();
-
-    this.ghosts.forEach(g => g.sprite.setTint(0x0000ff));
-
-    if (this.frightenedTimer) this.frightenedTimer.remove(false);
-    this.frightenedTimer = this.time.delayedCall(POWER_TIME, () => {
-      this.endFrightenedMode();
+    this.time.delayedCall(POWER_TIME, () => {
+      this.frightened = false;
+      if (this.sfxFright) this.sfxFright.stop();
     });
   }
 
-  endFrightenedMode() {
-    this.frightened = false;
-
-    if (this.sfxFrightened.isPlaying) this.sfxFrightened.stop();
-    if (this.bgm && !this.bgm.isPlaying) this.bgm.resume();
-
-    this.ghosts.forEach(g => {
-      g.sprite.clearTint();
-      if (g.type === "blinky") g.sprite.setTint(0xff0000);
-      if (g.type === "pinky") g.sprite.setTint(0xff77ff);
-      if (g.type === "inky") g.sprite.setTint(0x00ffff);
-      if (g.type === "clyde") g.sprite.setTint(0xffaa00);
-    });
-  }
-
-  /* =====================
-     HIT GHOST
-  ===================== */
-  onHitGhost(ghost) {
+  hitGhost(g) {
     if (this.frightened) {
-      ghost.tileX = ghost.spawnX;
-      ghost.tileY = ghost.spawnY;
-      ghost.sprite.setPosition(
-        ghost.tileX * TILE + TILE / 2,
-        HUD_HEIGHT + ghost.tileY * TILE + TILE / 2
+      g.tx = g.sx;
+      g.ty = g.sy;
+      g.s.setPosition(
+        g.tx * TILE + TILE / 2,
+        HUD_HEIGHT + g.ty * TILE + TILE / 2
       );
       this.score += 200;
       this.updateHUD();
     } else {
       this.lives--;
       this.updateHUD();
-
-      if (this.lives <= 0) {
-        this.scene.start("MenuScene");
-      } else {
-        this.scene.restart({
-          level: this.levelIndex,
-          score: this.score,
-          lives: this.lives
-        });
-      }
+      if (this.lives <= 0) this.scene.start("MenuScene");
     }
   }
 
   /* =====================
      LEVEL CLEAR
   ===================== */
-  showLevelClear() {
-    const text = this.add.text(
+  levelClear() {
+    const t = this.add.text(
       this.scale.width / 2,
       this.scale.height / 2,
       "LEVEL CLEAR",
-      {
-        fontSize: "36px",
-        fontStyle: "bold",
-        color: "#ffff00"
-      }
-    ).setOrigin(0.5).setDepth(100);
-
-    this.tweens.add({
-      targets: text,
-      scale: { from: 0.3, to: 1 },
-      duration: 400,
-      ease: "Back.Out"
-    });
+      { fontSize: "32px", color: "#ffff00" }
+    ).setOrigin(0.5);
 
     this.time.delayedCall(1200, () => {
       this.scene.start("GameScene", {
