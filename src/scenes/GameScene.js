@@ -29,8 +29,10 @@ export default class GameScene extends Phaser.Scene {
     this.frightened = false;
     this.frightenedTimer = null;
     this.ghosts = [];
-
-    this.allowDeath = false; // default: pacman tidak bisa mati
+ /* ==========================================
+     Mode bisa mati false - mode hidup terus true
+  ============================================ */
+    this.allowDeath = false; // default: pacman=tikus tidak bisa mati 
 
   }
 
