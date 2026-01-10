@@ -3,116 +3,114 @@ export default class MenuScene extends Phaser.Scene {
     super("MenuScene");
   }
 
+  preload() {
+    // Ganti path sesuai aset kamu
+    this.load.audio("intro", "assets/sound/intro.mp3");
+    this.load.audio("click", "assets/sound/click.wav");
+  }
+
   create() {
     const { width, height } = this.scale;
+    const cx = width / 2;
+    const cy = height / 2;
 
-    /* ======================
-       BACKGROUND
-    ====================== */
-    this.add.rectangle(width / 2, height / 2, width, height, 0x111111);
+    this.cameras.main.setBackgroundColor("#000000");
 
-    /* ======================
-       TITLE
-    ====================== */
-    this.add.text(
-      width / 2,
-      height * 0.28,
-      "KUCING VS\nTIKUS",
-      {
-        fontSize: "42px",
-        color: "#ffffff",
-        fontStyle: "bold",
-        align: "center"
+    // ===== SOUND INTRO =====
+    this.introSound = this.sound.add("intro", {
+      volume: 0.6,
+      loop: false,
+    });
+    this.introSound.play();
+
+    // ===== JUDUL GAME =====
+    const title = this.add.text(cx, cy - 140, "KEJAR TIKUS!", {
+      fontSize: "36px",
+      fontFamily: "Arial",
+      color: "#ffff00",
+    })
+    .setOrigin(0.5)
+    .setAlpha(0);
+
+    // Animasi judul (fade + scale)
+    this.tweens.add({
+      targets: title,
+      alpha: 1,
+      scale: { from: 0.8, to: 1 },
+      duration: 800,
+      ease: "Back.Out",
+    });
+
+    // ===== BRAND =====
+    const brand = this.add.text(cx, cy - 95, "manabu mantappu game", {
+      fontSize: "14px",
+      fontFamily: "Arial",
+      color: "#00ffff",
+    })
+    .setOrigin(0.5)
+    .setAlpha(0);
+
+    this.tweens.add({
+      targets: brand,
+      alpha: 1,
+      delay: 400,
+      duration: 600,
+    });
+
+    // ===== TOMBOL START =====
+    const startBtn = this.add.text(cx, cy + 20, "START", {
+      fontSize: "24px",
+      color: "#ffffff",
+      backgroundColor: "#333333",
+      padding: { x: 30, y: 12 },
+    })
+    .setOrigin(0.5)
+    .setInteractive({ useHandCursor: true })
+    .setAlpha(0);
+
+    // Muncul setelah intro
+    this.tweens.add({
+      targets: startBtn,
+      alpha: 1,
+      y: cy,
+      delay: 800,
+      duration: 500,
+      ease: "Power2",
+    });
+
+    // Hover effect
+    startBtn.on("pointerover", () => {
+      startBtn.setStyle({ backgroundColor: "#555555" });
+    });
+
+    startBtn.on("pointerout", () => {
+      startBtn.setStyle({ backgroundColor: "#333333" });
+    });
+
+    // Klik START
+    startBtn.on("pointerdown", () => {
+      this.sound.play("click");
+
+      // Stop intro sound
+      if (this.introSound.isPlaying) {
+        this.introSound.stop();
       }
-    ).setOrigin(0.5);
 
-    this.add.text(
-      width / 2,
-      height * 0.4,
-      "Mobile happy Game",
-      {
-        fontSize: "14px",
-        color: "#aaaaaa"
-      }
-    ).setOrigin(0.5);
+      // Animasi keluar sebelum pindah scene
+      this.tweens.add({
+        targets: [title, brand, startBtn],
+        alpha: 0,
+        duration: 300,
+        onComplete: () => {
+          this.scene.start("GameScene", { level: 0 });
+        },
+      });
+    });
 
-    /* ======================
-       START BUTTON
-    ====================== */
-    this.createButton(
-      width / 2,
-      height * 0.55,
-      "START",
-      () => {
-        this.unlockAudioSafe();
-        this.safePlayClick();
-
-        // ⏱ kecil delay agar audio tidak block
-        this.time.delayedCall(120, () => {
-          this.scene.start("GameScene", {
-            level: 0,
-            score: 0,
-            lives: 3
-          });
-        });
-      }
-    );
-
-    /* ======================
-       FOOTER
-    ====================== */
-    this.add.text(
-      width / 2,
-      height - 30,
-      "Tap button to play\nManabu Mantappu Game",
-      {
-        fontSize: "12px",
-        color: "#777777"
-      }
-    ).setOrigin(0.5);
-  }
-
-  /* ======================
-     AUDIO SAFE
-  ====================== */
-  unlockAudioSafe() {
-    if (this.sound?.context?.state === "suspended") {
-      this.sound.context.resume();
-    }
-  }
-
-  safePlayClick() {
-    if (this.sound && this.sound.get("click")) {
-      this.sound.play("click", { volume: 0.6 });
-    }
-  }
-
-  /* ======================
-     BUTTON COMPONENT
-  ====================== */
-  createButton(x, y, label, onClick) {
-    const button = this.add
-      .rectangle(x, y, 220, 54, 0x00bfa5)
-      .setInteractive({ useHandCursor: true });
-
-    this.add.text(x, y, label, {
-      fontSize: "18px",
-      color: "#000000",
-      fontStyle: "bold"
+    // ===== FOOTER =====
+    this.add.text(cx, height - 30, "© 2026 manabu mantappu game", {
+      fontSize: "10px",
+      color: "#666666",
     }).setOrigin(0.5);
-
-    button.on("pointerdown", () => {
-      button.setScale(0.95);
-      navigator.vibrate?.(20);
-    });
-
-    button.on("pointerup", () => {
-      button.setScale(1);
-      onClick();
-    });
-
-    button.on("pointerout", () => {
-      button.setScale(1);
-    });
   }
 }
