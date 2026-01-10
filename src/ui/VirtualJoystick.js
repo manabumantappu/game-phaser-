@@ -3,8 +3,12 @@ export default class VirtualJoystick {
     this.forceX = 0;
     this.forceY = 0;
 
-    const base = scene.add.circle(60, 356, 36, 0x444444, 0.4);
-    const stick = scene.add.circle(60, 356, 18, 0xffffff, 0.8);
+    // 👉 POSISI TENGAH BAWAH
+    const cx = scene.scale.width / 2;
+    const cy = scene.scale.height - 80;
+
+    const base = scene.add.circle(cx, cy, 36, 0x444444, 0.4);
+    const stick = scene.add.circle(cx, cy, 18, 0xffffff, 0.8);
 
     base.setScrollFactor(0);
     stick.setScrollFactor(0);
