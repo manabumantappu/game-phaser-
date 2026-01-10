@@ -41,7 +41,7 @@ export default class MenuScene extends Phaser.Scene {
     });
 
     // ===== BRAND =====
-    const brand = this.add.text(cx, cy - 95, "tikus lapar ambil makanan", {
+    const brand = this.add.text(cx, cy - 95, "Tikus lapar ambil makanan...!!!", {
       fontSize: "14px",
       fontFamily: "Arial",
       color: "#00ffff",
