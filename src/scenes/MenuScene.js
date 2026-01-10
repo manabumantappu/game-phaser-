@@ -64,8 +64,7 @@ export default class MenuScene extends Phaser.Scene {
     this.add.text(
       width / 2,
       height - 30,
-      "Tap button to play" 
-      "Manabu Mantappu Game",
+      "Tap button to play\nManabu Mantappu Game",
       {
         fontSize: "12px",
         color: "#777777"
