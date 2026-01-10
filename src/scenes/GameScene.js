@@ -29,6 +29,9 @@ export default class GameScene extends Phaser.Scene {
     this.frightened = false;
     this.frightenedTimer = null;
     this.ghosts = [];
+
+    this.allowDeath = false; // default: pacman tidak bisa mati
+
   }
 
   /* =====================
@@ -255,8 +258,42 @@ export default class GameScene extends Phaser.Scene {
     }
 
     this.moveGhosts();
+   // ⭐ TAMBAHKAN BARIS INI
+  this.checkGhostCollision();
+}
+   /* =====================
+     GHOST COLLISION CHECK
+  ===================== */
+  checkGhostCollision() {
+    this.ghosts.forEach(g => {
+      if (g.tileX === this.tileX && g.tileY === this.tileY) {
+        if (!this.frightened) {
+          this.handlePlayerHit();
+        }
+      }
+    });
   }
+/* =====================
+     HANDLE PLAYER HIT
+     (MODE CASUAL / CLASSIC)
+  ===================== */
+  handlePlayerHit() {
+    if (!this.allowDeath) {
+      // MODE AMAN: pacman tidak mati
+      this.cameras.main.shake(150, 0.01);
+      return;
+    }
 
+    // MODE CLASSIC (belum aktif)
+    this.lives--;
+    this.updateHUD();
+
+    if (this.lives <= 0) {
+      this.gameOver();
+    } else {
+      this.respawnPlayer();
+    }
+  }
   /* =====================
      MOVE PLAYER
   ===================== */
