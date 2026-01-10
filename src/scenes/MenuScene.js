@@ -17,7 +17,7 @@ export default class MenuScene extends Phaser.Scene {
     this.add.text(
       width / 2,
       height * 0.28,
-      "MAZE\nPUZZLE",
+      "KUCING VS\nTIKUS",
       {
         fontSize: "42px",
         color: "#ffffff",
@@ -29,7 +29,7 @@ export default class MenuScene extends Phaser.Scene {
     this.add.text(
       width / 2,
       height * 0.4,
-      "Mobile Puzzle Game",
+      "Mobile happy Game",
       {
         fontSize: "14px",
         color: "#aaaaaa"
@@ -64,7 +64,8 @@ export default class MenuScene extends Phaser.Scene {
     this.add.text(
       width / 2,
       height - 30,
-      "Tap button to play",
+      "Tap button to play" 
+      "Manabu Mantappu Game",
       {
         fontSize: "12px",
         color: "#777777"
