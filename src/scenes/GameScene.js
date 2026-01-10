@@ -27,6 +27,7 @@ export default class GameScene extends Phaser.Scene {
     this.nextDir = { x: 0, y: 0 };
 
     this.frightened = false;
+    this.frightenedTimer = null;
     this.ghosts = [];
   }
 
@@ -330,24 +331,53 @@ export default class GameScene extends Phaser.Scene {
   /* =====================
      FRIGHTENED
   ===================== */
-  startFrightened() {
+ startFrightened() {
+  // Jika power aktif → reset timer saja
+  if (this.frightened) {
+    if (this.frightenedTimer) {
+      this.frightenedTimer.remove(false);
+    }
+  } else {
     this.frightened = true;
-    this.bgm.pause();
-    this.sfxFrightened.play();
-    this.ghosts.forEach(g => g.sprite.setTint(0x0000ff));
 
-    this.time.delayedCall(POWER_TIME, () => {
-      this.frightened = false;
-      this.sfxFrightened.stop();
-      this.bgm.resume();
-      this.ghosts.forEach(g => g.sprite.clearTint());
-    });
+    if (this.bgm && this.bgm.isPlaying) {
+      this.bgm.pause();
+    }
+
+    if (!this.sfxFrightened.isPlaying) {
+      this.sfxFrightened.play();
+    }
+
+    this.ghosts.forEach(g => g.sprite.setTint(0x0000ff));
   }
+
+  // Set ulang timer
+  this.frightenedTimer = this.time.delayedCall(
+    POWER_TIME,
+    () => this.endFrightened(),
+    [],
+    this
+  );
+}
+endFrightened() {
+  this.frightened = false;
+
+  if (this.sfxFrightened.isPlaying) {
+    this.sfxFrightened.stop();
+  }
+
+  if (this.bgm && !this.bgm.isPlaying) {
+    this.bgm.resume();
+  }
+
+  this.ghosts.forEach(g => g.sprite.clearTint());
+}
 
   /* =====================
      LEVEL CLEAR
   ===================== */
   levelClear() {
+    this.endFrightened();
     this.sfxLevelClear.play();
 
     this.add.text(
