@@ -203,13 +203,13 @@ export default class GameScene extends Phaser.Scene {
       mute.setText(this.sound.mute ? "🔇" : "🔊");
     });
 
-      /* =====================
-     TEXT BERJALAN ..BISA KIRIM SALAM..HAHAHA
-  ===================== */
+      /* ===============================================================
+     TEXT BERJALAN ..BISA KIRIM SALAM..HAHAHAHAHAHAHHAHAHAHAHAH
+  ====================================================================== */
     const text = this.add.text(
       this.scale.width / 2,
       this.scale.height - 36,
-      "GOOD LUCK! AZIS SANTOSO PT HANKEN INDONESIA ",
+      "GOOD LUCK! KELUARGA CEMARA SEBENTAR LAGI LULUS ",
       { fontSize: "14px", color: "#ffffff" }
     ).setOrigin(0.5);
 
